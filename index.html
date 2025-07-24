@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>cEDH Clock Enhanced v2 - VictorJuliani</title>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7551753720999910"
+     crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --p1-color-start: #D32F2F;
+            --p1-color-end: #B71C1C;
+            --p2-color-start: #1976D2;
+            --p2-color-end: #0D47A1;
+            --p3-color-start: #388E3C;
+            --p3-color-end: #1B5E20;
+            --p4-color-start: #FFA000;
+            --p4-color-end: #FF6F00;
+
+            --text-color: #FFFFFF;
+            --inactive-overlay: rgba(0, 0, 0, 0.5);
+            --active-glow-color: rgba(255, 255, 255, 0.8); 
+            
+            --pause-icon-color: #FFFFFF;
+            --pause-icon-stroke-color: rgba(0, 0, 0, 0.65);
+            --pause-icon-shadow-color: rgba(0,0,0,0.5);
+
+            --settings-bg: #424242;
+            --settings-hover-bg: #616161;
+            --settings-icon-color: #E0E0E0;
+
+            --timed-out-stripe1: rgba(0,0,0,0.35);
+            --timed-out-stripe2: rgba(0,0,0,0.45);
+            --timed-out-bg-start: #666666; 
+            --timed-out-bg-end: #4c4c4c;   
+
+            /* Warning Glow RGB values */
+            --yellow-warning-glow-rgb: 255, 230, 0;
+            --red-warning-glow-rgb: 255, 17, 0;
+        }
+
+        /* Keyframes for breathing glow opacity (applied to pseudo-element) */
+        @keyframes breathe-glow {
+            0%, 100% { opacity: 0.45; } 
+            50% { opacity: 1.0; }    
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            background-color: #212121;
+            color: var(--text-color);
+            touch-action: manipulation;
+            overflow: hidden;
+        }
+
+        #clock-container {
+            display: grid;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .quadrant {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.4s ease, opacity 0.3s ease, filter 0.2s ease; 
+            position: relative; 
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0,0,0,0.6), 0 0 10px rgba(0,0,0,0.4);
+            padding: 10px;
+            box-sizing: border-box;
+            border-radius: 8px; 
+            overflow: hidden; 
+        }
+        .quadrant.long-pressing {
+            filter: brightness(0.7) contrast(1.1);
+        }
+
+        .quadrant::before { 
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%; 
+            background-color: var(--inactive-overlay);
+            opacity: 1;
+            transition: opacity 0.3s ease;
+            z-index: 1; 
+            border-radius: inherit; 
+            pointer-events: none;
+        }
+        
+        .quadrant > * { 
+            position: relative;
+            z-index: 2; 
+        }
+        
+        .quadrant.rotate-180 .player-name,
+        .quadrant.rotate-180 .time-display {
+            transform: rotate(180deg);
+        }
+
+
+        .quadrant.active::before {
+            opacity: 0; 
+        }
+
+        .quadrant.active { 
+            box-shadow: inset 0 0 20px 5px var(--active-glow-color), 0 0 15px var(--active-glow-color);
+        }
+
+        .quadrant.yellow-warning::after,
+        .quadrant.red-warning::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%; 
+            border-radius: inherit; 
+            z-index: 0; 
+            pointer-events: none; 
+            animation: breathe-glow 2.2s ease-in-out infinite alternate;
+            transform: translateZ(0); 
+        }
+
+        .quadrant.yellow-warning::after {
+            box-shadow: inset 0 0 6vmin 2vmin rgba(var(--yellow-warning-glow-rgb), 1);
+        }
+
+        .quadrant.red-warning::after {
+            box-shadow: inset 0 0 8vmin 4vmin rgba(var(--red-warning-glow-rgb), 0.85);
+        }
+        
+        .quadrant.timed-out-player {
+            background-image: 
+                repeating-linear-gradient( 
+                    45deg,
+                    var(--timed-out-stripe1),
+                    var(--timed-out-stripe1) 15px,
+                    var(--timed-out-stripe2) 15px,
+                    var(--timed-out-stripe2) 30px
+                ),
+                linear-gradient(135deg, var(--timed-out-bg-start), var(--timed-out-bg-end)); 
+            cursor: not-allowed !important;
+            opacity: 0.7 !important; 
+            box-shadow: none !important; 
+        }
+        .quadrant.timed-out-player::before { 
+            opacity: 0 !important; 
+        }
+        .quadrant.timed-out-player::after { 
+            display: none !important; 
+        }
+        .quadrant.timed-out-player .player-name,
+        .quadrant.timed-out-player .time-display {
+            text-decoration: line-through;
+            text-decoration-thickness: 2px;
+            opacity: 0.8;
+        }
+
+        @keyframes flash-timeout {
+            0%, 100% { filter: brightness(100%); transform: scale(1); }
+            25% { filter: brightness(180%) contrast(150%); transform: scale(1.02); }
+            50% { filter: brightness(60%); transform: scale(0.98); }
+            75% { filter: brightness(180%) contrast(150%); transform: scale(1.02); }
+        }
+        .timeout-flash-animation {
+            animation: flash-timeout 0.8s ease-in-out;
+        }
+
+        .player-name {
+            font-size: clamp(14px, 3.5vmin, 28px);
+            margin-bottom: 1vh;
+            opacity: 0.9;
+        }
+
+        .time-display {
+            font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+            font-size: clamp(28px, 10vmin, 90px); 
+            letter-spacing: -0.02em;
+        }
+
+        .byo-yomi-display {
+            font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+            font-size: clamp(14px, 3.5vmin, 28px);
+            opacity: 0.8;
+        }
+
+        .delay-display {
+            font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+            font-size: clamp(12px, 3vmin, 24px);
+            opacity: 0.7;
+        }
+
+        #pause-button {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 18vmin; height: 18vmin; max-width: 100px; max-height: 100px;
+            background-color: transparent; color: var(--pause-icon-color);
+            display: flex; align-items: center; justify-content: center;
+            font-size: clamp(40px, 12vmin, 70px); cursor: pointer; user-select: none;
+            border-radius: 50%; z-index: 10; transition: transform 0.1s ease;
+            -webkit-text-stroke: 1.5px var(--pause-icon-stroke-color);
+            text-stroke: 1.5px var(--pause-icon-stroke-color);
+            paint-order: stroke fill; text-shadow: 2px 2px 5px var(--pause-icon-shadow-color);
+        }
+        #pause-button:active { transform: translate(-50%, -50%) scale(0.92); }
+
+        #settings-toggle {
+            position: fixed; top: 20px; right: 20px; background: var(--settings-bg);
+            color: var(--settings-icon-color); border: none; width: 50px; height: 50px;
+            font-size: 24px; border-radius: 50%; cursor: pointer; z-index: 1001;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        #settings-toggle:hover { background-color: var(--settings-hover-bg); }
+        #settings-toggle:active { transform: scale(0.95); }
+
+        #settings-modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto; background-color: rgba(0,0,0,0.5); -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px); align-items: center; justify-content: center;
+        }
+        .settings-content {
+            background-color: rgba(50, 50, 50, 0.92); margin: auto; padding: 25px 30px;
+            border: 1px solid #555; width: 90%; max-width: 550px; 
+            border-radius: 12px;
+            color: var(--text-color); box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+        }
+        .settings-content h2 { margin-top: 0; margin-bottom: 20px; text-align: center; font-size: 1.8em; color: #fafafa; }
+        
+        .settings-main-actions { 
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+        }
+        .settings-main-actions button {
+            padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer;
+            font-weight: bold; font-size: 0.95em; transition: background-color 0.2s ease, transform 0.1s ease;
+            flex-basis: 48%; 
+        }
+        .settings-main-actions button:active { transform: scale(0.97); }
+        .settings-main-actions #apply-settings { background-color: #4CAF50; color: white; }
+        .settings-main-actions #apply-settings:hover { background-color: #45a049; }
+        .settings-main-actions #close-settings { background-color: #f44336; color: white; }
+        .settings-main-actions #close-settings:hover { background-color: #e53935; }
+
+        .settings-content label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.95em; color: #ddd; }
+        .settings-content input[type="number"],
+        .settings-content input[type="text"] { 
+            width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #666;
+            background-color: #333; color: var(--text-color); box-sizing: border-box; font-size: 1em;
+        }
+        .settings-content .color-setting-group { display: flex; align-items: center; margin-bottom: 15px; }
+        .settings-content .color-setting-group label { flex-basis: 120px; margin-bottom: 0; } 
+        .settings-content input[type="color"] {
+            padding: 0; border: 1px solid #666; border-radius: 6px; cursor: pointer; height: 40px;
+            width: 60px; margin-left: 10px; -webkit-appearance: none; -moz-appearance: none; appearance: none; background: none;
+        }
+        .settings-content input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 5px; }
+        .settings-content input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
+        .settings-content input[type="color"]::-moz-color-swatch { border: none; border-radius: 5px; }
+        
+        .settings-collapsible {
+            background-color: rgba(60,60,60,0.7);
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #505050;
+        }
+        .settings-collapsible summary {
+            padding: 12px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            outline: none;
+            color: #e0e0e0;
+            transition: background-color 0.2s ease;
+            list-style-position: inside; 
+        }
+        .settings-collapsible summary:hover {
+            background-color: rgba(75,75,75,0.7);
+        }
+        .settings-collapsible[open] summary {
+            border-bottom: 1px solid #505050;
+            background-color: rgba(70,70,70,0.8);
+        }
+        .settings-collapsible .collapsible-content {
+            padding: 15px 20px;
+        }
+        .settings-collapsible .collapsible-content label { 
+            font-size: 0.9em;
+            color: #ccc;
+        }
+        .settings-collapsible .collapsible-content input[type="text"] {
+            padding: 10px; margin-bottom: 15px; font-size: 0.95em;
+        }
+        .settings-checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .settings-checkbox-group input[type="checkbox"] {
+            margin-right: 12px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--active-glow-color); 
+        }
+        .settings-checkbox-group label {
+            margin-bottom: 0;
+            font-weight: normal;
+            color: #ddd;
+            font-size: 0.9em;
+        }
+
+        .settings-divider {
+            height: 1px; background-color: #5f5f5f; margin: 25px 0;
+        }
+        .settings-howto-section h3 {
+            font-size: 1.2em; color: #f0f0f0; margin-bottom: 12px; text-align: left;
+        }
+        .settings-howto-section ul {
+            list-style-type: disc; padding-left: 25px; margin-top: 0; margin-bottom: 15px;
+            font-size: 0.9em; line-height: 1.6; color: #ccc;
+        }
+        .settings-howto-section li::marker { color: #aaa; }
+        .settings-credits {
+            text-align: center; font-size: 0.85em; color: #b0b0b0; margin-top: 20px;
+            font-style: italic;
+        }
+        .settings-credits a {
+            color: #c0c0c0; text-decoration: none;
+        }
+        .settings-credits a:hover {
+            color: #ffffff; text-decoration: underline;
+        }
+        hr.player-customization-divider {
+            border-color: #555; margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="clock-container">
+        <!-- Quadrants will be dynamically generated here by JavaScript -->
+    </div>
+
+    <button id="settings-toggle">⚙️</button>
+
+    <div id="settings-modal">
+        <div class="settings-content">
+            <h2>Settings</h2>
+
+            <div class="settings-main-actions">
+                <button id="apply-settings">Apply Settings & Reset Game</button>
+                <button id="close-settings">Close</button>
+            </div>
+
+            <details class="settings-collapsible">
+                <summary>Timer Settings</summary>
+                <div class="collapsible-content">
+                    <label for="initial-base-time-minutes">Base Time (minutes):</label>
+                    <input type="number" id="initial-base-time-minutes" value="20" min="0">
+
+                    <label for="initial-base-time-seconds">Base Time (seconds):</label>
+                    <input type="number" id="initial-base-time-seconds" value="0" min="0" max="59">
+
+                    <label for="time-addition-seconds">Addition per turn (seconds):</label>
+                    <input type="number" id="time-addition-seconds" value="0" min="0">
+
+                    <label for="delay-before-tick-seconds">Delay before tick (seconds):</label>
+                    <input type="number" id="delay-before-tick-seconds" value="0" min="0" max="5">
+
+                   
+                    <div class="settings-divider"></div>
+
+                    <label for="byo-yomi-time-seconds">Byo-Yomi Time (seconds):</label>
+                    <input type="number" id="byo-yomi-time-seconds" value="30" min="0">
+
+                    <label for="byo-yomi-periods">Byo-Yomi Periods:</label>
+                    <input type="number" id="byo-yomi-periods" value="1" min="0">
+
+                    <div class="settings-divider"></div>
+
+                    <div class="settings-checkbox-group">
+                        <input type="checkbox" id="count-up-toggle">
+                        <label for="count-up-toggle">Count Up Timer</label>
+                    </div>
+                    <div class="settings-checkbox-group">
+                        <input type="checkbox" id="full-rotation-increment-toggle">
+                        <label for="full-rotation-increment-toggle">Increment time only after a full turn rotation</label>
+                    </div>
+                    <div class="settings-checkbox-group">
+                        <input type="checkbox" id="increment-on-every-turn-end-toggle">
+                        <label for="increment-on-every-turn-end-toggle">Increment time on every turn end</label>
+                    </div>
+                </div>
+            </details>
+            
+            <details class="settings-collapsible" open> <!-- Made this open by default -->
+                <summary>Player Customizations</summary>
+                <div class="collapsible-content">
+                    <label for="num-players-input">Number of Players (1-8):</label>
+                    <input type="number" id="num-players-input" value="4" min="1" max="8" style="margin-bottom: 20px;">
+                    
+                    <div id="player-customization-dynamic-area">
+                        <!-- Player name and color inputs will be dynamically generated here -->
+                    </div>
+                </div>
+            </details>
+
+            <details class="settings-collapsible">
+                <summary>Warning Customizations</summary>
+                <div class="collapsible-content">
+                    <div class="settings-checkbox-group">
+                        <input type="checkbox" id="long-turn-warning-toggle">
+                        <label for="long-turn-warning-toggle">Enable Long Turn Warning (active turn > 1 min)</label>
+                    </div>
+                    <div class="settings-checkbox-group">
+                        <input type="checkbox" id="low-time-warning-toggle">
+                        <label for="low-time-warning-toggle">Enable Low Total Time Warning (< 25% of initial)</label> 
+                    </div>
+                </div>
+            </details>
+            
+            <div class="settings-divider"></div>
+
+            <details class="settings-collapsible">
+                <summary>Manual Time Adjustment</summary>
+                <div class="collapsible-content">
+                    <label for="player-select-add-time">Select Player:</label>
+                    <select id="player-select-add-time"></select>
+
+                    <label for="time-to-add-seconds">Time to Add (seconds):</label>
+                    <input type="number" id="time-to-add-seconds" value="60" min="1">
+
+                    <button id="add-time-button" style="margin-top: 15px; padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Add Time</button>
+                </div>
+            </details>
+
+            <div class="settings-howto-section">
+                <h3>How to Play:</h3>
+                <ul>
+                    <li>Tapping a player's quadrant will start their timer or pass the turn.</li>
+                    <li>Tap your player quadrant to pass priority.</li>
+                    <li>Tap your player quadrant when it's not your turn to get priority and bypass turn order.</li>
+                    <li>The central button pauses or resumes the current player's timer.</li>
+                    <li>Pressing Spacebar on a keyboard acts like tapping the current active player's quadrant (passes turn if running, resumes/starts if paused).</li>
+                    <li>If a player's time reaches 00:00 (in count down mode), they are automatically eliminated.</li>
+                    <li>Press and hold a player's quadrant for 3 seconds to manually eliminate them. Their time will be kept, but they are out of play.</li>
+                    <li>Use the ⚙️ icon to access settings and reset the game.</li>
+                </ul>
+            </div>
+
+            <div class="settings-credits">
+                Created by <a href="https://github.com/VictorJuliani" target="_blank" rel="noopener noreferrer">Victor Juliani</a>
+            </div>
+
+            <!-- START PAYPAL DONATION BUTTON SECTION -->
+            <div id="donate-button-container" style="text-align: center; margin-top: 25px; margin-bottom: 10px;">
+                <div id="donate-button">
+                    <!-- Fallback content if JS fails or SDK is blocked -->
+                    <a href="https://www.paypal.com/donate/?hosted_button_id=69S697PCL4378" target="_blank" rel="noopener noreferrer" title="PayPal - The safer, easier way to pay online!">
+                        <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" alt="Donate with PayPal button" style="border:0;" />
+                    </a>
+                </div>
+                <script src="https://www.paypalobjects.com/donate/sdk/donate-sdk.js" charset="UTF-8"></script>
+                <script>
+                try {
+                    // This assumes the PayPal SDK script above has loaded and defined 'PayPal'
+                    if (typeof PayPal !== 'undefined' && PayPal.Donation && typeof PayPal.Donation.Button === 'function') {
+                        var donateButtonElement = document.getElementById('donate-button');
+                        if(donateButtonElement) {
+                            donateButtonElement.innerHTML = ''; // Clear fallback HTML before rendering
+                        }
+                        PayPal.Donation.Button({
+                            env:'production',
+                            hosted_button_id:'69S697PCL4378',
+                            image: {
+                                src:'https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif',
+                                alt:'Donate with PayPal button',
+                                title:'PayPal - The safer, easier way to pay online!',
+                            }
+                        }).render('#donate-button');
+                    } else {
+                        console.warn('PayPal SDK not fully available. Static fallback donation link will be used.');
+                    }
+                } catch (error) {
+                    console.error('Failed to render PayPal button:', error);
+                }
+                </script>
+            </div>
+            <!-- END PAYPAL DONATION BUTTON SECTION -->
+
+        </div>
+    </div>
+    <div id="pause-button">▶️</div> 
+
+
+    <script>
+        const DEFAULT_INITIAL_BASE_MINUTES = 20;
+        const DEFAULT_INITIAL_ADDITION_SECONDS = 0;
+        const LOCAL_STORAGE_SETTINGS_KEY = 'cEDHClockSettingsEnhanced_v2_VJ';
+        const MAX_SUPPORTED_PLAYERS = 8; 
+        const LONG_PRESS_DURATION = 3000;
+        const LONG_TURN_THRESHOLD_SECONDS = 60; 
+        const LOW_TIME_PERCENTAGE_THRESHOLD = 0.25;
+
+        const BASE_DEFAULT_PLAYER_CONFIGS = [
+            { name: "Player 1", colorStart: '#e88a8a', colorEnd: '#cc5c5c', cssVarStart: '--p1-color-start', cssVarEnd: '--p1-color-end' },
+            { name: "Player 2", colorStart: '#64b5f6', colorEnd: '#1976d2', cssVarStart: '--p2-color-start', cssVarEnd: '--p2-color-end' },
+            { name: "Player 3", colorStart: '#81c784', colorEnd: '#388e3c', cssVarStart: '--p3-color-start', cssVarEnd: '--p3-color-end' },
+            { name: "Player 4", colorStart: '#e1b382', colorEnd: '#d18f52', cssVarStart: '--p4-color-start', cssVarEnd: '--p4-color-end' }
+        ];
+        
+        let numPlayers = 4; 
+        let playerConfigs = []; 
+
+        let playerTimes = [];
+        let activePlayerIndex = -1; 
+        let currentTurnPlayerIndex = 0; 
+        let timerInterval = null;
+        let isPaused = true;
+        let initialBaseTimeSeconds = 0;
+        let timeAdditionSecondsPerTurn = DEFAULT_INITIAL_ADDITION_SECONDS;
+        let delayBeforeTickSeconds = 0; 
+        let fullscreenAttemptedInLandscape = false;
+        let gameHasStartedOnce = false; 
+        
+        let longPressTimers = [];
+        let longPressActionTakenFlags = [];
+
+        let isLongTurnWarningEnabled = false;
+        let isLowTimeWarningEnabled = false;
+        let playerTurnStartTimestamps = []; 
+
+        let isFullRotationIncrementEnabled = false; 
+        let incrementOnEveryTurnEnd = false; // New variable for increment on every turn end
+        let mainTurnHolderIndex = 0;   
+        let isCountUpMode = false;          
+
+        let byoYomiTimeSeconds = 30; // New variable for Byo-Yomi time
+        let byoYomiPeriods = 1; // New variable for Byo-Yomi periods
+        let playerByoYomiPeriodsUsed = []; // To track periods used by each player
+        let playerInByoYomiPhase = []; // To track if a player is in byo-yomi mode
+
+        let wakeLock = null;
+        let usingWakeLockAPI = ('wakeLock' in navigator);
+        let wakeLockVideo = null; 
+
+        let playerElements = []; 
+        let timeDisplayElements = [];
+        let playerNameSpans = [];
+        let dynPlayerNameInputs = [];
+        let dynColorStartInputs = [];
+        let dynColorEndInputs = [];
+        let visualToLogicalMap = []; 
+
+
+        const requestWakeLock = async () => {
+            if (usingWakeLockAPI) {
+                try {
+                    if (wakeLock === null) {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        wakeLock.addEventListener('release', () => {
+                            wakeLock = null;
+                        });
+                    }
+                } catch (err) {
+                    console.error(`Wake Lock API failed: ${err.name}, ${err.message}. Falling back to video method.`);
+                    usingWakeLockAPI = false; 
+                    await requestWakeLock();
+                }
+            } else if (wakeLockVideo && wakeLockVideo.paused) {
+                try {
+                    await wakeLockVideo.play();
+                } catch(err) {
+                    console.error("Wake lock video fallback failed to play:", err);
+                }
+            }
+        };
+
+        const releaseWakeLock = async () => {
+            if (usingWakeLockAPI) {
+                if (wakeLock !== null) {
+                    await wakeLock.release();
+                    wakeLock = null;
+                }
+            } else if (wakeLockVideo && !wakeLockVideo.paused) {
+                wakeLockVideo.pause();
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (usingWakeLockAPI && document.visibilityState === 'visible' && !isPaused && activePlayerIndex !== -1) {
+                requestWakeLock();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        let audioContext;
+        function initAudioContext() {
+            if (!audioContext) {
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) { console.warn("Web Audio API not supported."); }
+            }
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+        document.addEventListener('click', initAudioContext, { once: true });
+        document.addEventListener('touchstart', initAudioContext, { once: true });
+
+        function playBeep(frequency = 440, duration = 0.1, type = 'sine', volume = 0.3) {
+            if (!audioContext) { return; }
+            if (audioContext.state === 'suspended') { audioContext.resume(); }
+            try {
+                const o = audioContext.createOscillator(), g = audioContext.createGain();
+                o.connect(g); g.connect(audioContext.destination);
+                o.type = type; o.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                g.gain.setValueAtTime(volume, audioContext.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + duration);
+                o.start(audioContext.currentTime); o.stop(audioContext.currentTime + duration);
+            } catch (e) { console.error("Error playing beep:", e); }
+        }
+
+        const startupMelodyNotes = [
+            { freq: 392.00, duration: 0.075, delay: 0.0, type: 'square' },
+            { freq: 466.16, duration: 0.075, delay: 0.085, type: 'square' },
+            { freq: 523.25, duration: 0.075, delay: 0.170, type: 'square' },
+            { freq: 698.46, duration: 0.180, delay: 0.255, type: 'triangle' }
+        ];
+
+        function playStartupMelody() {
+            if (!audioContext) { return; }
+            if (audioContext.state === 'suspended') { audioContext.resume(); }
+            try {
+                const now = audioContext.currentTime;
+                const overallGain = audioContext.createGain();
+                overallGain.gain.setValueAtTime(0.15, now); 
+                overallGain.connect(audioContext.destination);
+                startupMelodyNotes.forEach(note => {
+                    const o = audioContext.createOscillator(), gn = audioContext.createGain();
+                    o.connect(gn); gn.connect(overallGain);
+                    o.type = note.type || 'square';
+                    o.frequency.setValueAtTime(note.freq, now + note.delay);
+                    gn.gain.setValueAtTime(1.0, now + note.delay);
+                    gn.gain.exponentialRampToValueAtTime(0.00001, now + note.delay + note.duration);
+                    o.start(now + note.delay); o.stop(now + note.delay + note.duration);
+                });
+            } catch (e) { console.error("Error playing startup melody:", e); }
+        }
+        
+        const clockContainer = document.getElementById('clock-container');
+        const pauseButton = document.getElementById('pause-button');
+        const settingsToggleButton = document.getElementById('settings-toggle');
+        const settingsModal = document.getElementById('settings-modal');
+        const applySettingsButton = document.getElementById('apply-settings');
+        const closeSettingsButton = document.getElementById('close-settings');
+        
+        const numPlayersInput = document.getElementById('num-players-input');
+        const initialBaseTimeMinutesInput = document.getElementById('initial-base-time-minutes');
+        const initialBaseTimeSecondsInput = document.getElementById('initial-base-time-seconds');
+        const timeAdditionSecondsInput = document.getElementById('time-addition-seconds');
+        const delayBeforeTickSecondsInput = document.getElementById('delay-before-tick-seconds');
+        const fullRotationIncrementToggle = document.getElementById('full-rotation-increment-toggle');
+        const countUpToggle = document.getElementById('count-up-toggle');
+        const incrementOnEveryTurnEndToggle = document.getElementById('increment-on-every-turn-end-toggle');
+        
+        const playerCustomizationDynamicArea = document.getElementById('player-customization-dynamic-area'); // Changed ID
+
+        const byoYomiTimeInput = document.getElementById('byo-yomi-time-seconds');
+        const byoYomiPeriodsInput = document.getElementById('byo-yomi-periods');
+
+        const longTurnWarningToggle = document.getElementById('long-turn-warning-toggle');
+        const lowTimeWarningToggle = document.getElementById('low-time-warning-toggle');
+
+        const playerSelectAddTime = document.getElementById('player-select-add-time');
+        const timeToAddSecondsInput = document.getElementById('time-to-add-seconds');
+        const addTimeButton = document.getElementById('add-time-button');
+
+        const rootStyle = document.documentElement.style;
+
+        function generateRandomHexColor() {
+            return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        }
+        
+        function getQuadrantDOMByLogicalIndex(logicalPlayerIndex) {
+            return playerElements.find(el => el && parseInt(el.dataset.playerIndex) === logicalPlayerIndex);
+        }
+        
+        function isPlayerEffectivelyOutOfGame(logicalPlayerIndex) {
+            if (logicalPlayerIndex < 0 || logicalPlayerIndex >= numPlayers) return true;
+            const q = getQuadrantDOMByLogicalIndex(logicalPlayerIndex);
+            const timedOutByClock = !isCountUpMode && playerTimes[logicalPlayerIndex] <= 0;
+            return timedOutByClock || (q && q.classList.contains('timed-out-player'));
+        }
+        
+        function getNextLogicalPlayerIndex(currentLogicalPlayerIndex) {
+            return (currentLogicalPlayerIndex + 1) % numPlayers;
+        }
+
+        function findNextValidPlayerInSequence(startingLogicalPlayerIndex) {
+            if (numPlayers <= 0) return -1;
+
+            let nextLogicalPlayer = getNextLogicalPlayerIndex(startingLogicalPlayerIndex);
+            let attempts = 0;
+            while (isPlayerEffectivelyOutOfGame(nextLogicalPlayer) && attempts < numPlayers) {
+                if (nextLogicalPlayer === startingLogicalPlayerIndex && attempts > 0) {
+                    return -1; 
+                }
+                nextLogicalPlayer = getNextLogicalPlayerIndex(nextLogicalPlayer);
+                attempts++;
+            }
+            if (attempts >= numPlayers && isPlayerEffectivelyOutOfGame(nextLogicalPlayer)) { 
+                 return -1;
+            }
+            return nextLogicalPlayer;
+        }
+
+
+        function goFullScreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) elem.requestFullscreen().catch(err => console.warn("FS failed:", err));
+            else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen().catch(err => console.warn("FS failed (webkit):", err));
+            else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+        }
+
+        function attemptFullscreenOnMobileLandscape() {
+            if (fullscreenAttemptedInLandscape) return;
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /MacIntel/.test(navigator.platform));
+            if (!isMobile) return;
+            const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+            const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+            if (isLandscape && !isFS) {
+                goFullScreen();
+                fullscreenAttemptedInLandscape = true; 
+            }
+        }
+        
+        function handleOrientationChangeForFlagReset() {
+            if (!window.matchMedia("(orientation: landscape)").matches) {
+                fullscreenAttemptedInLandscape = false;
+            }
+        }
+
+        if (screen.orientation && typeof screen.orientation.addEventListener === 'function') {
+            screen.orientation.addEventListener('change', handleOrientationChangeForFlagReset);
+        } else {
+            window.addEventListener('orientationchange', handleOrientationChangeForFlagReset);
+        }
+
+        function formatTime(totalSeconds) {
+            if (totalSeconds < 0 && !isCountUpMode) totalSeconds = 0; 
+            const absTotalSeconds = Math.abs(totalSeconds);
+            const m = Math.floor(absTotalSeconds / 60);
+            const s = absTotalSeconds % 60;
+            const sign = totalSeconds < 0 ? "-" : ""; 
+            return `${sign}${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function applyVisualWarnings() {
+            const now = performance.now();
+            for (let logicalIdx = 0; logicalIdx < numPlayers; logicalIdx++) {
+                const qElement = getQuadrantDOMByLogicalIndex(logicalIdx);
+                if (!qElement) continue;
+
+                if (qElement.classList.contains('timed-out-player')) {
+                    qElement.classList.remove('yellow-warning', 'red-warning');
+                    continue; 
+                }
+
+                let needsYellow = false;
+                let needsRed = false;
+
+                if (isLowTimeWarningEnabled && !isCountUpMode) { 
+                    const lowTimeThresholdValue = ((initialBaseTimeMinutes * 60) + initialBaseTimeSeconds) * LOW_TIME_PERCENTAGE_THRESHOLD;
+                    if (playerTimes[logicalIdx] > 0 && playerTimes[logicalIdx] <= lowTimeThresholdValue) {
+                        needsRed = true;
+                    }
+                }
+
+                if (isLongTurnWarningEnabled && logicalIdx === activePlayerIndex && !isPaused && playerTurnStartTimestamps[logicalIdx] !== null) {
+                    const currentTurnDurationSeconds = (now - playerTurnStartTimestamps[logicalIdx]) / 1000;
+                    if (currentTurnDurationSeconds > LONG_TURN_THRESHOLD_SECONDS) {
+                        needsYellow = true;
+                    }
+                }
+                
+                qElement.classList.toggle('red-warning', needsRed);
+                qElement.classList.toggle('yellow-warning', needsYellow && !needsRed);
+            }
+        }
+
+        function updateDisplay() {
+            for (let logicalIdx = 0; logicalIdx < numPlayers; logicalIdx++) {
+                const visualElementIndex = visualToLogicalMap.indexOf(logicalIdx);
+                if (visualElementIndex !== -1 && timeDisplayElements[visualElementIndex]) {
+                    timeDisplayElements[visualElementIndex].textContent = formatTime(playerTimes[logicalIdx]);
+                    const byoYomiSpan = playerElements[visualElementIndex].querySelector('.byo-yomi-display');
+                    if (byoYomiSpan) {
+                        if (playerInByoYomiPhase[logicalIdx] && byoYomiPeriods > 0) {
+                            byoYomiSpan.textContent = `x${byoYomiPeriods - playerByoYomiPeriodsUsed[logicalIdx]}`;
+                        } else {
+                            byoYomiSpan.textContent = '';
+                        }
+                    }
+                }
+
+                const qElement = getQuadrantDOMByLogicalIndex(logicalIdx); 
+                if (qElement) {
+                    qElement.classList.toggle('active', logicalIdx === activePlayerIndex && !isPaused && !isPlayerEffectivelyOutOfGame(logicalIdx));
+                }
+            }
+            applyVisualWarnings(); 
+            pauseButton.textContent = isPaused ? '▶️' : '⏸️';
+        }
+        
+        function stopAllTimers() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function manuallyDisablePlayer(logicalPlayerIndex) {
+            const quadrant = getQuadrantDOMByLogicalIndex(logicalPlayerIndex);
+            if (!quadrant || quadrant.classList.contains('timed-out-player')) {
+                return;
+            }
+            console.log(`Manually disabling ${playerConfigs[logicalPlayerIndex].name}`);
+            playBeep(220, 0.15, 'sawtooth', 0.25); // Sound for manual disable
+
+            quadrant.classList.add('timeout-flash-animation'); // Start flash
+
+            setTimeout(() => { // After flash duration
+                if (quadrant) {
+                    quadrant.classList.remove('timeout-flash-animation');
+                    quadrant.classList.add('timed-out-player');
+                    quadrant.classList.remove('yellow-warning', 'red-warning', 'active'); 
+                    quadrant.style.backgroundImage = ''; // Clear custom gradient for striped background
+                }
+            }, 800);
+
+
+            if (activePlayerIndex === logicalPlayerIndex) {
+                const nextPlayer = findNextValidPlayerInSequence(activePlayerIndex);
+                stopAllTimers();
+                if (nextPlayer !== -1) {
+                    startTimerForPlayer(nextPlayer);
+                } else {
+                    isPaused = true;
+                    activePlayerIndex = -1;
+                    releaseWakeLock();
+                }
+            }
+            updateDisplay(); // Update general display
+        }
+
+        function handleTimeout(logicalPlayerIndex) { 
+            console.log(`handleTimeout called for player ${logicalPlayerIndex}. Current time: ${playerTimes[logicalPlayerIndex]}, In Byo-Yomi Phase: ${playerInByoYomiPhase[logicalPlayerIndex]}, Periods Used: ${playerByoYomiPeriodsUsed[logicalPlayerIndex]}`);
+            if (isCountUpMode) return;
+
+            // If player is currently in main time and it runs out
+            if (!playerInByoYomiPhase[logicalPlayerIndex]) {
+                if (byoYomiPeriods > 0) {
+                    playerInByoYomiPhase[logicalPlayerIndex] = true;
+                    playerTimes[logicalPlayerIndex] = byoYomiTimeSeconds;
+                    playBeep(600, 0.1, 'sine', 0.3); // Sound for entering Byo-Yomi
+                    updateDisplay();
+                    console.log(`Player ${logicalPlayerIndex} entered Byo-Yomi phase. Time: ${playerTimes[logicalPlayerIndex]}`);
+                    return; // Do not eliminate player yet, they entered Byo-Yomi
+                }
+            }
+            
+            // If player is in Byo-Yomi and their current period runs out
+            if (playerInByoYomiPhase[logicalPlayerIndex]) {
+                playerByoYomiPeriodsUsed[logicalPlayerIndex]++;
+                console.log(`Player ${logicalPlayerIndex} used a Byo-Yomi period. Periods left: ${byoYomiPeriods - playerByoYomiPeriodsUsed[logicalPlayerIndex]}`);
+                if (playerByoYomiPeriodsUsed[logicalPlayerIndex] < byoYomiPeriods) {
+                    playerTimes[logicalPlayerIndex] = byoYomiTimeSeconds; // Reset time for next period
+                    playBeep(600, 0.1, 'sine', 0.3); // Sound for using a Byo-Yomi period
+                    updateDisplay();
+                    console.log(`Player ${logicalPlayerIndex} time reset for next Byo-Yomi period. Time: ${playerTimes[logicalPlayerIndex]}`);
+                    return; // Player used a period, not eliminated yet
+                }
+            }
+
+            // If main time ran out and no Byo-Yomi periods, or all Byo-Yomi periods used
+            playerTimes[logicalPlayerIndex] = 0;
+            console.log(`Player ${logicalPlayerIndex} eliminated. Final time: ${playerTimes[logicalPlayerIndex]}`);
+            const timedOutQuadrant = getQuadrantDOMByLogicalIndex(logicalPlayerIndex);
+
+            if (timedOutQuadrant && !timedOutQuadrant.classList.contains('timed-out-player')) {
+                 playBeep(880, 0.2, 'square', 0.4); 
+                 playBeep(880, 0.2, 'square', 0.4); 
+                 
+                 timedOutQuadrant.classList.add('timeout-flash-animation'); // Start flash
+
+                 setTimeout(() => { // After flash duration
+                    if (timedOutQuadrant) {
+                        timedOutQuadrant.classList.remove('timeout-flash-animation');
+                        timedOutQuadrant.classList.add('timed-out-player');
+                        timedOutQuadrant.classList.remove('yellow-warning', 'red-warning', 'active'); 
+                        timedOutQuadrant.style.backgroundImage = ''; // Clear custom gradient
+                        // updateDisplay(); // Optional: as above
+                    }
+                 }, 800);
+            }
+            
+            if (activePlayerIndex === logicalPlayerIndex) {
+                 const nextPlayer = findNextValidPlayerInSequence(activePlayerIndex);
+                stopAllTimers();
+                if (nextPlayer !== -1) {
+                    startTimerForPlayer(nextPlayer);
+                } else {
+                    isPaused = true;
+                    activePlayerIndex = -1;
+                    releaseWakeLock();
+                }
+            }
+            updateDisplay(); // Update general display
+        }
+
+        function startTimerForPlayer(logicalPlayerIndex) {
+            if (isPlayerEffectivelyOutOfGame(logicalPlayerIndex)) { 
+                updateDisplay();
+                return;
+            }
+
+            stopAllTimers(); 
+            activePlayerIndex = logicalPlayerIndex;
+            currentTurnPlayerIndex = logicalPlayerIndex; 
+            isPaused = false; 
+            requestWakeLock();
+            
+            playerTurnStartTimestamps = playerTurnStartTimestamps.map(() => null); 
+            playerTurnStartTimestamps[logicalPlayerIndex] = performance.now();
+
+            if (!gameHasStartedOnce) {
+                initAudioContext(); 
+                playStartupMelody();
+                gameHasStartedOnce = true;
+            }
+
+            // Apply delay before starting the actual timer
+            if (delayBeforeTickSeconds > 0) {
+                updateDisplay(); // Update display to show active player immediately
+                const delaySpan = getQuadrantDOMByLogicalIndex(logicalPlayerIndex).querySelector('.delay-display');
+                if(delaySpan) {
+                    let delayRemaining = delayBeforeTickSeconds;
+                    delaySpan.textContent = `Delay: ${delayRemaining}`;
+                    const delayInterval = setInterval(() => {
+                        delayRemaining--;
+                        if(delayRemaining > 0) {
+                            delaySpan.textContent = `Delay: ${delayRemaining}`;
+                        } else {
+                            delaySpan.textContent = '';
+                            clearInterval(delayInterval);
+                        }
+                    }, 1000);
+                }
+
+                setTimeout(() => {
+                    if (!isPaused && activePlayerIndex === logicalPlayerIndex) { // Ensure still active and not paused after delay
+                        startActualTimerInterval(logicalPlayerIndex);
+                    }
+                }, delayBeforeTickSeconds * 1000);
+            } else {
+                startActualTimerInterval(logicalPlayerIndex);
+            }
+        }
+
+        function startActualTimerInterval(logicalPlayerIndex) {
+            timerInterval = setInterval(() => {
+                if (!isPaused && playerTimes[activePlayerIndex] !== undefined && !isPlayerEffectivelyOutOfGame(activePlayerIndex)) {
+                    if (isCountUpMode) {
+                        playerTimes[activePlayerIndex]++;
+                    } else {
+                        playerTimes[activePlayerIndex]--;
+                        if (playerTimes[activePlayerIndex] <= 0) {
+                            handleTimeout(activePlayerIndex); 
+                        }
+                    }
+                    updateDisplay(); 
+                } else if (!isCountUpMode && playerTimes[activePlayerIndex] <= 0 && !isPaused) { 
+                    handleTimeout(activePlayerIndex);
+                } else if (isPlayerEffectivelyOutOfGame(activePlayerIndex) && !isPaused) {
+                    const nextPlayer = findNextValidPlayerInSequence(activePlayerIndex);
+                    stopAllTimers();
+                    if (nextPlayer !== -1) {
+                        startTimerForPlayer(nextPlayer);
+                    } else {
+                        isPaused = true;
+                        activePlayerIndex = -1;
+                        releaseWakeLock();
+                    }
+                    updateDisplay();
+                } else {
+                    if(isPaused) updateDisplay(); 
+                }
+            }, 1000);
+            updateDisplay();
+        }
+
+        function passTurnFromActivePlayer() {
+            if (activePlayerIndex === -1 || isPaused) return;
+            if (isPlayerEffectivelyOutOfGame(activePlayerIndex)) {
+                if (!isPaused) togglePause(); 
+                return;
+            }
+            
+            const playerEndingTurnLogical = activePlayerIndex; 
+            handleEndOfTurnForPlayer(playerEndingTurnLogical);
+            
+            stopAllTimers(); 
+            const nextLogicalPlayer = findNextValidPlayerInSequence(playerEndingTurnLogical);
+
+            if (nextLogicalPlayer !== -1) {
+                startTimerForPlayer(nextLogicalPlayer); 
+            } else {
+                isPaused = true;
+                activePlayerIndex = -1; 
+                releaseWakeLock();
+            }
+            updateDisplay(); 
+        }
+
+        function handleEndOfTurnForPlayer(logicalPlayerIndex) {
+            console.log(`handleEndOfTurnForPlayer called for player ${logicalPlayerIndex}. Initial time: ${playerTimes[logicalPlayerIndex]}, In Byo-Yomi Phase: ${playerInByoYomiPhase[logicalPlayerIndex]}`);
+            if (logicalPlayerIndex === -1) return; // No active player to handle
+
+            if (playerTurnStartTimestamps[logicalPlayerIndex] !== null) {
+                playerTurnStartTimestamps[logicalPlayerIndex] = null;
+            }
+
+            // Byo-Yomi reset logic
+            if (playerInByoYomiPhase[logicalPlayerIndex]) {
+                playerTimes[logicalPlayerIndex] = byoYomiTimeSeconds; // Reset Byo-Yomi period time
+                console.log(`Player ${logicalPlayerIndex} in Byo-Yomi phase. Time reset to: ${playerTimes[logicalPlayerIndex]}`);
+            }
+
+            // Time addition logic
+            if (!isCountUpMode && timeAdditionSecondsPerTurn > 0) {
+                if (isFullRotationIncrementEnabled && !incrementOnEveryTurnEnd) {
+                    if (logicalPlayerIndex === mainTurnHolderIndex && 
+                        !isPlayerEffectivelyOutOfGame(logicalPlayerIndex)) {
+                        
+                        playerTimes[logicalPlayerIndex] += timeAdditionSecondsPerTurn;
+                        console.log(`Player ${logicalPlayerIndex} (main turn holder) time incremented to: ${playerTimes[logicalPlayerIndex]}`);
+
+                        let nextMainTurnHolder = findNextValidPlayerInSequence(mainTurnHolderIndex);
+                        if (nextMainTurnHolder !== -1) {
+                            mainTurnHolderIndex = nextMainTurnHolder;
+                        }
+                    }
+                } else if (incrementOnEveryTurnEnd) {
+                    if (logicalPlayerIndex !== -1 && 
+                        !isPlayerEffectivelyOutOfGame(logicalPlayerIndex)) {
+                        playerTimes[logicalPlayerIndex] += timeAdditionSecondsPerTurn;
+                        console.log(`Player ${logicalPlayerIndex} time incremented to: ${playerTimes[logicalPlayerIndex]}`);
+                    }
+                }
+            }
+        }
+
+        function handlePressStart(event, logicalPlayerIndex) {
+            const quadrant = getQuadrantDOMByLogicalIndex(logicalPlayerIndex);
+            if (!quadrant || isPlayerEffectivelyOutOfGame(logicalPlayerIndex)) return;
+            if (event.type === 'mousedown') event.preventDefault();
+            clearTimeout(longPressTimers[logicalPlayerIndex]);
+            longPressActionTakenFlags[logicalPlayerIndex] = false; 
+            quadrant.classList.add('long-pressing');
+            longPressTimers[logicalPlayerIndex] = setTimeout(() => {
+                if (quadrant.classList.contains('long-pressing')) {
+                    manuallyDisablePlayer(logicalPlayerIndex);
+                    longPressActionTakenFlags[logicalPlayerIndex] = true; 
+                    quadrant.classList.remove('long-pressing'); 
+                }
+                longPressTimers[logicalPlayerIndex] = null; 
+            }, LONG_PRESS_DURATION);
+        }
+
+        function handlePressEnd(event, logicalPlayerIndex) {
+            const quadrant = getQuadrantDOMByLogicalIndex(logicalPlayerIndex); 
+            if (longPressTimers[logicalPlayerIndex]) {
+                clearTimeout(longPressTimers[logicalPlayerIndex]);
+                longPressTimers[logicalPlayerIndex] = null; 
+            }
+            if (quadrant) quadrant.classList.remove('long-pressing');
+        }
+
+        function handleQuadrantClick(event) {
+            const clickedQuadrant = event.currentTarget;
+            const clickedLogicalPlayerIndex = parseInt(clickedQuadrant.dataset.playerIndex);
+
+            if (longPressActionTakenFlags[clickedLogicalPlayerIndex]) {
+                longPressActionTakenFlags[clickedLogicalPlayerIndex] = false; 
+                return; 
+            }
+
+            if (isPlayerEffectivelyOutOfGame(clickedLogicalPlayerIndex)) {
+                playBeep(150, 0.1, 'triangle', 0.2);
+                return;
+            }
+            initAudioContext(); 
+            attemptFullscreenOnMobileLandscape();
+
+            if (isPaused) { 
+                startTimerForPlayer(clickedLogicalPlayerIndex);
+                return; 
+            }
+
+            if (activePlayerIndex === clickedLogicalPlayerIndex) {
+                 passTurnFromActivePlayer(); 
+            } else { 
+                const playerEndingTurnLogical = activePlayerIndex; 
+                handleEndOfTurnForPlayer(playerEndingTurnLogical); // Call the centralized end-of-turn logic
+                stopAllTimers(); 
+                startTimerForPlayer(clickedLogicalPlayerIndex); 
+            }
+        }
+
+        function togglePause() {
+            initAudioContext();
+            attemptFullscreenOnMobileLandscape();
+            if (isPaused) { 
+                let playerToStartCandidate = -1;
+                if (activePlayerIndex !== -1 && !isPlayerEffectivelyOutOfGame(activePlayerIndex)) {
+                    playerToStartCandidate = activePlayerIndex; 
+                } else {
+                    let potentialStarters = [currentTurnPlayerIndex, mainTurnHolderIndex, 0];
+                    for (let starter of potentialStarters) {
+                        if (starter >=0 && starter < numPlayers && !isPlayerEffectivelyOutOfGame(starter)) {
+                            playerToStartCandidate = starter;
+                            break;
+                        }
+                    }
+                    if (playerToStartCandidate === -1) {
+                         for (let i = 0; i < numPlayers; i++) { 
+                            if (!isPlayerEffectivelyOutOfGame(i)) {
+                                playerToStartCandidate = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (playerToStartCandidate !== -1) {
+                    startTimerForPlayer(playerToStartCandidate); 
+                } else { 
+                    isPaused = true; 
+                    activePlayerIndex = -1;
+                    updateDisplay(); 
+                    playBeep(180, 0.15, 'sawtooth', 0.25); 
+                }
+            } else { 
+                isPaused = true;
+                stopAllTimers(); 
+                releaseWakeLock();
+                updateDisplay(); 
+                playBeep(300, 0.08, 'triangle', 0.2);
+            }
+        }
+        
+        pauseButton.addEventListener('click', togglePause);
+
+        document.addEventListener('keydown', (event) => {
+            const activeElement = document.activeElement;
+            const isInputActive = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable);
+            const isModalOpen = settingsModal.style.display === 'flex';
+
+            if (isModalOpen || isInputActive) return; 
+
+            if (event.key === ' ' || event.code === 'Space') {
+                event.preventDefault();
+                initAudioContext(); 
+                attemptFullscreenOnMobileLandscape(); 
+                if (!isPaused && activePlayerIndex !== -1 && !isPlayerEffectivelyOutOfGame(activePlayerIndex)) {
+                    passTurnFromActivePlayer(); 
+                } else if (isPaused) {
+                    togglePause(); 
+                } else { 
+                    playBeep(220, 0.1, 'sine', 0.2); 
+                }
+            }
+        });
+
+        function applyAndResetGame() {
+            let parsedNumPlayers = parseInt(numPlayersInput.value);
+            numPlayers = (parsedNumPlayers >= 1 && parsedNumPlayers <= MAX_SUPPORTED_PLAYERS) ? parsedNumPlayers : 4;
+            numPlayersInput.value = numPlayers; 
+
+            let baseMinutesFromInput = parseInt(initialBaseTimeMinutesInput.value);
+            let baseSecondsFromInput = parseInt(initialBaseTimeSecondsInput.value);
+
+            initialBaseTimeMinutes = (!isNaN(baseMinutesFromInput) && baseMinutesFromInput >= 0) ? baseMinutesFromInput : DEFAULT_INITIAL_BASE_MINUTES;
+            initialBaseTimeSeconds = (!isNaN(baseSecondsFromInput) && baseSecondsFromInput >= 0 && baseSecondsFromInput < 60) ? baseSecondsFromInput : 0;
+
+            if (initialBaseTimeMinutes < 0) initialBaseTimeMinutes = 0;
+            if (initialBaseTimeSeconds < 0) initialBaseTimeSeconds = 0;
+
+            if (initialBaseTimeMinutes === 0 && initialBaseTimeSeconds === 0) {
+                initialBaseTimeSeconds = 1; // Ensure there is at least 1 second
+            }
+
+            let additionFromInput = parseInt(timeAdditionSecondsInput.value);
+            timeAdditionSecondsPerTurn = (additionFromInput !== null && !isNaN(additionFromInput) && additionFromInput >= 0) ? additionFromInput : DEFAULT_INITIAL_ADDITION_SECONDS;
+            if (timeAdditionSecondsPerTurn < 0) timeAdditionSecondsPerTurn = 0;
+            
+            let delayFromInput = parseInt(delayBeforeTickSecondsInput.value);
+            delayBeforeTickSeconds = (delayFromInput !== null && !isNaN(delayFromInput) && delayFromInput >= 0 && delayFromInput <= 5) ? delayFromInput : 0;
+            if (delayBeforeTickSeconds < 0) delayBeforeTickSeconds = 0;
+            if (delayBeforeTickSeconds > 5) delayBeforeTickSeconds = 5;
+
+            let byoYomiTimeFromInput = parseInt(byoYomiTimeInput.value);
+            byoYomiTimeSeconds = (byoYomiTimeFromInput !== null && !isNaN(byoYomiTimeFromInput) && byoYomiTimeFromInput >= 0) ? byoYomiTimeFromInput : 30;
+            if (byoYomiTimeSeconds < 0) byoYomiTimeSeconds = 0;
+
+            let byoYomiPeriodsFromInput = parseInt(byoYomiPeriodsInput.value);
+            byoYomiPeriods = (byoYomiPeriodsFromInput !== null && !isNaN(byoYomiPeriodsFromInput) && byoYomiPeriodsFromInput >= 0) ? byoYomiPeriodsFromInput : 1;
+            if (byoYomiPeriods < 0) byoYomiPeriods = 0;
+
+            isCountUpMode = countUpToggle.checked;
+            if (isCountUpMode) { 
+                initialBaseTimeMinutesInput.disabled = true;
+                initialBaseTimeSecondsInput.disabled = true;
+                lowTimeWarningToggle.checked = false;
+                lowTimeWarningToggle.disabled = true;
+            } else {
+                initialBaseTimeMinutesInput.disabled = false;
+                initialBaseTimeSecondsInput.disabled = false;
+                lowTimeWarningToggle.disabled = false;
+            }
+
+            isLongTurnWarningEnabled = longTurnWarningToggle.checked;
+            isLowTimeWarningEnabled = isCountUpMode ? false : lowTimeWarningToggle.checked; 
+            isFullRotationIncrementEnabled = fullRotationIncrementToggle.checked; 
+            incrementOnEveryTurnEnd = incrementOnEveryTurnEndToggle.checked; 
+            incrementOnEveryTurnEnd = incrementOnEveryTurnEndToggle.checked;
+
+            let settingsToSave = {
+                numPlayers: numPlayers,
+                initialBaseTimeMinutes: initialBaseTimeMinutes,
+                initialBaseTimeSeconds: initialBaseTimeSeconds,
+                timeAdditionSeconds: timeAdditionSecondsPerTurn,
+                delayBeforeTickSeconds: delayBeforeTickSeconds,
+                isCountUpMode: isCountUpMode,
+                longTurnWarningEnabled: isLongTurnWarningEnabled,
+                lowTimeWarningEnabled: isLowTimeWarningEnabled,
+                fullRotationIncrementEnabled: isFullRotationIncrementEnabled,
+                incrementOnEveryTurnEnd: incrementOnEveryTurnEnd, // Add this line
+                byoYomiTime: byoYomiTimeSeconds,
+                byoYomiPeriods: byoYomiPeriods,
+                playerInByoYomiPhase: playerInByoYomiPhase,
+                playerConfigs: []
+            };
+            
+            playerConfigs = []; 
+            for (let i = 0; i < numPlayers; i++) {
+                const name = dynPlayerNameInputs[i] ? (dynPlayerNameInputs[i].value.trim() || `Player ${i + 1}`) : `Player ${i + 1}`;
+                const colorStart = dynColorStartInputs[i] ? dynColorStartInputs[i].value : generateRandomHexColor();
+                const colorEnd = dynColorEndInputs[i] ? dynColorEndInputs[i].value : generateRandomHexColor();
+                
+                let currentConfig = { name, colorStart, colorEnd };
+                if (i < BASE_DEFAULT_PLAYER_CONFIGS.length) {
+                    currentConfig.cssVarStart = BASE_DEFAULT_PLAYER_CONFIGS[i].cssVarStart;
+                    currentConfig.cssVarEnd = BASE_DEFAULT_PLAYER_CONFIGS[i].cssVarEnd;
+                }
+                playerConfigs.push(currentConfig);
+                settingsToSave.playerConfigs.push({ name, colorStart, colorEnd }); 
+            }
+            
+            localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(settingsToSave));
+            resetGame(); 
+        }
+        
+        function setupPlayerSettingsUI(count) {
+            playerCustomizationDynamicArea.innerHTML = ''; // Use new container ID
+            dynPlayerNameInputs = [];
+            dynColorStartInputs = [];
+            dynColorEndInputs = [];
+
+            for (let i = 0; i < count; i++) {
+                const config = playerConfigs[i] || { 
+                    name: `Player ${i + 1}`,
+                    colorStart: i < BASE_DEFAULT_PLAYER_CONFIGS.length ? BASE_DEFAULT_PLAYER_CONFIGS[i].colorStart : generateRandomHexColor(),
+                    colorEnd: i < BASE_DEFAULT_PLAYER_CONFIGS.length ? BASE_DEFAULT_PLAYER_CONFIGS[i].colorEnd : generateRandomHexColor(),
+                };
+
+                const div = document.createElement('div');
+                
+                const nameLabel = document.createElement('label');
+                nameLabel.htmlFor = `p${i+1}-name-input-dyn`;
+                nameLabel.textContent = `Player ${i+1} Name:`;
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.id = `p${i+1}-name-input-dyn`;
+                nameInput.placeholder = `Player ${i+1}`;
+                nameInput.value = config.name;
+                dynPlayerNameInputs.push(nameInput);
+
+                const colorGroup = document.createElement('div');
+                colorGroup.className = 'color-setting-group';
+                
+                const colorStartLabel = document.createElement('label');
+                colorStartLabel.htmlFor = `p${i+1}-color-start-input-dyn`;
+                colorStartLabel.textContent = `P${i+1} Colors Start:`;
+                const colorStartInput = document.createElement('input');
+                colorStartInput.type = 'color';
+                colorStartInput.id = `p${i+1}-color-start-input-dyn`;
+                colorStartInput.value = config.colorStart;
+                dynColorStartInputs.push(colorStartInput);
+
+                const colorEndLabel = document.createElement('label');
+                colorEndLabel.htmlFor = `p${i+1}-color-end-input-dyn`;
+                colorEndLabel.style.marginLeft = '10px';
+                colorEndLabel.textContent = `End:`;
+                const colorEndInput = document.createElement('input');
+                colorEndInput.type = 'color';
+                colorEndInput.id = `p${i+1}-color-end-input-dyn`;
+                colorEndInput.value = config.colorEnd;
+                dynColorEndInputs.push(colorEndInput);
+
+                colorGroup.appendChild(colorStartLabel);
+                colorGroup.appendChild(colorStartInput);
+                colorGroup.appendChild(colorEndLabel);
+                colorGroup.appendChild(colorEndInput);
+
+                div.appendChild(nameLabel);
+                div.appendChild(nameInput);
+                div.appendChild(colorGroup);
+                playerCustomizationDynamicArea.appendChild(div); // Use new container ID
+
+                if (i < count - 1) {
+                    const hr = document.createElement('hr');
+                    hr.className = 'player-customization-divider';
+                    playerCustomizationDynamicArea.appendChild(hr); // Use new container ID
+                }
+            }
+        }
+        
+        numPlayersInput.addEventListener('change', () => {
+            let currentNum = parseInt(numPlayersInput.value);
+            if (isNaN(currentNum) || currentNum < 1) currentNum = 1;
+            if (currentNum > MAX_SUPPORTED_PLAYERS) currentNum = MAX_SUPPORTED_PLAYERS;
+            numPlayersInput.value = currentNum; 
+
+            while(playerConfigs.length < currentNum) {
+                const nextIndex = playerConfigs.length;
+                playerConfigs.push({
+                    name: `Player ${nextIndex + 1}`,
+                    colorStart: nextIndex < BASE_DEFAULT_PLAYER_CONFIGS.length ? BASE_DEFAULT_PLAYER_CONFIGS[nextIndex].colorStart : generateRandomHexColor(),
+                    colorEnd: nextIndex < BASE_DEFAULT_PLAYER_CONFIGS.length ? BASE_DEFAULT_PLAYER_CONFIGS[nextIndex].colorEnd : generateRandomHexColor(),
+                    ...(nextIndex < BASE_DEFAULT_PLAYER_CONFIGS.length && { 
+                        cssVarStart: BASE_DEFAULT_PLAYER_CONFIGS[nextIndex].cssVarStart,
+                        cssVarEnd: BASE_DEFAULT_PLAYER_CONFIGS[nextIndex].cssVarEnd
+                    })
+                });
+            }
+            if (playerConfigs.length > currentNum) {
+                playerConfigs = playerConfigs.slice(0, currentNum);
+            }
+            setupPlayerSettingsUI(currentNum); 
+        });
+
+        function setupQuadrantsAndDOM() {
+            clockContainer.innerHTML = ''; 
+            playerElements = []; 
+            playerNameSpans = [];
+            timeDisplayElements = [];
+            
+            for (let i = 0; i < numPlayers; i++) { 
+                const q = document.createElement('div');
+                q.classList.add('quadrant');
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.classList.add('player-name');
+                
+                const timeSpan = document.createElement('span');
+                timeSpan.classList.add('time-display');
+
+                const byoYomiSpan = document.createElement('span');
+                byoYomiSpan.classList.add('byo-yomi-display');
+
+                const delaySpan = document.createElement('span');
+                delaySpan.classList.add('delay-display');
+                
+                q.appendChild(nameSpan);
+                q.appendChild(timeSpan);
+                q.appendChild(byoYomiSpan);
+                q.appendChild(delaySpan);
+                clockContainer.appendChild(q); 
+
+                playerElements.push(q); 
+                playerNameSpans.push(nameSpan);
+                timeDisplayElements.push(timeSpan);
+
+                q.addEventListener('click', handleQuadrantClick);
+                q.addEventListener('mousedown', (e) => {
+                    const logicalIdx = parseInt(e.currentTarget.dataset.playerIndex);
+                    handlePressStart(e, logicalIdx);
+                });
+                q.addEventListener('touchstart', (e) => {
+                    const logicalIdx = parseInt(e.currentTarget.dataset.playerIndex);
+                    handlePressStart(e, logicalIdx);
+                }, { passive: false });
+                q.addEventListener('mouseup', (e) => {
+                     const logicalIdx = parseInt(e.currentTarget.dataset.playerIndex);
+                    handlePressEnd(e, logicalIdx);
+                });
+                q.addEventListener('mouseleave', (e) => {
+                     const logicalIdx = parseInt(e.currentTarget.dataset.playerIndex);
+                    handlePressEnd(e, logicalIdx);
+                });
+                q.addEventListener('touchend', (e) => {
+                     const logicalIdx = parseInt(e.currentTarget.dataset.playerIndex);
+                    handlePressEnd(e, logicalIdx);
+                });
+                q.addEventListener('touchcancel', (e) => {
+                     const logicalIdx = parseInt(e.currentTarget.dataset.playerIndex);
+                    handlePressEnd(e, logicalIdx);
+                });
+                q.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+            applyGridLayoutAndRotation(); 
+        }
+        
+        function applyGridLayoutAndRotation() {
+            let gridCols = "1fr", gridRows = "1fr";
+            let currentRotations = Array(numPlayers).fill(false); 
+            visualToLogicalMap = []; 
+
+            playerElements.forEach(el => {
+                if(el) el.style.gridArea = ''; 
+            });
+            
+            switch (numPlayers) {
+                case 1: 
+                    visualToLogicalMap = [0]; 
+                    gridCols = "1fr"; gridRows = "1fr";
+                    break;
+                case 2: 
+                    visualToLogicalMap = [0, 1]; 
+                    gridCols = "1fr"; gridRows = "1fr 1fr"; 
+                    break; 
+                case 3: 
+                    visualToLogicalMap = [0, 1, 2]; 
+                    gridCols = "1fr 1fr"; gridRows = "1fr 1fr";
+                    if (playerElements[0]) playerElements[0].style.gridArea = "1 / 1 / 2 / 2"; 
+                    if (playerElements[1]) playerElements[1].style.gridArea = "1 / 2 / 2 / 3"; 
+                    if (playerElements[2]) playerElements[2].style.gridArea = "2 / 1 / 3 / 3"; 
+                    break;
+                case 4: 
+                    visualToLogicalMap = [0, 1, 3, 2]; 
+                    gridCols = "1fr 1fr"; gridRows = "1fr 1fr"; 
+                    break;
+                case 5: 
+                    visualToLogicalMap = [0, 1, 4, 3, 2]; 
+                    gridCols = "repeat(6, 1fr)"; gridRows = "1fr 1fr";
+                    if(playerElements[0]) playerElements[0].style.gridArea = "1 / 1 / 2 / 4"; 
+                    if(playerElements[1]) playerElements[1].style.gridArea = "1 / 4 / 2 / 7"; 
+                    if(playerElements[2]) playerElements[2].style.gridArea = "2 / 1 / 3 / 3"; 
+                    if(playerElements[3]) playerElements[3].style.gridArea = "2 / 3 / 3 / 5"; 
+                    if(playerElements[4]) playerElements[4].style.gridArea = "2 / 5 / 3 / 7"; 
+                    break;
+                case 6: 
+                    visualToLogicalMap = [0, 1, 2, 5, 4, 3]; 
+                    gridCols = "1fr 1fr 1fr"; gridRows = "1fr 1fr"; 
+                    break;
+                case 7: 
+                    visualToLogicalMap = [0, 1, 2, 3, 6, 5, 4]; 
+                    gridCols = "repeat(12, 1fr)"; gridRows = "1fr 1fr"; 
+                    if(playerElements[0]) playerElements[0].style.gridArea = "1 / 1 / 2 / 4";   
+                    if(playerElements[1]) playerElements[1].style.gridArea = "1 / 4 / 2 / 7";   
+                    if(playerElements[2]) playerElements[2].style.gridArea = "1 / 7 / 2 / 10";  
+                    if(playerElements[3]) playerElements[3].style.gridArea = "1 / 10 / 2 / 13"; 
+                    if(playerElements[4]) playerElements[4].style.gridArea = "2 / 1 / 3 / 5";   
+                    if(playerElements[5]) playerElements[5].style.gridArea = "2 / 5 / 3 / 9";   
+                    if(playerElements[6]) playerElements[6].style.gridArea = "2 / 9 / 3 / 13";  
+                    break;
+                case 8: 
+                    visualToLogicalMap = [0, 1, 2, 3, 7, 6, 5, 4]; 
+                    gridCols = "repeat(4, 1fr)"; gridRows = "1fr 1fr"; 
+                    break;
+            }
+            clockContainer.style.gridTemplateColumns = gridCols;
+            clockContainer.style.gridTemplateRows = gridRows;
+
+            for (let visualSlotIndex = 0; visualSlotIndex < numPlayers; visualSlotIndex++) {
+                const logicalPlayerId = visualToLogicalMap[visualSlotIndex]; 
+                let shouldRotate = false;
+                const playerNumber = logicalPlayerId + 1; 
+
+                switch (numPlayers) {
+                    case 1: break; 
+                    case 2: if (playerNumber === 1) shouldRotate = true; break;
+                    case 3: if (playerNumber === 1 || playerNumber === 2) shouldRotate = true; break;
+                    case 4: if (playerNumber === 1 || playerNumber === 2) shouldRotate = true; break;
+                    case 5: if (playerNumber >= 1 && playerNumber <= 2) shouldRotate = true; break;
+                    case 6: if (playerNumber >= 1 && playerNumber <= 3) shouldRotate = true; break;
+                    case 7: if (playerNumber >= 1 && playerNumber <= 4) shouldRotate = true; break;
+                    case 8: if (playerNumber >= 1 && playerNumber <= 4) shouldRotate = true; break;
+                }
+                currentRotations[visualSlotIndex] = shouldRotate;
+            }
+
+            for (let visualSlotIndex = 0; visualSlotIndex < numPlayers; visualSlotIndex++) {
+                const qElement = playerElements[visualSlotIndex];
+                if (!qElement) continue;
+
+                const logicalPlayerIndex = visualToLogicalMap[visualSlotIndex];
+                qElement.dataset.playerIndex = logicalPlayerIndex; 
+
+                const config = playerConfigs[logicalPlayerIndex];
+                if (config) {
+                    const nameSpan = qElement.querySelector('.player-name');
+                    if (nameSpan) nameSpan.textContent = config.name;
+
+                    if (config.cssVarStart && config.cssVarEnd) {
+                        qElement.style.backgroundImage = `linear-gradient(135deg, var(${config.cssVarStart}), var(${config.cssVarEnd}))`;
+                        rootStyle.setProperty(config.cssVarStart, config.colorStart);
+                        rootStyle.setProperty(config.cssVarEnd, config.colorEnd);
+                    } else {
+                        qElement.style.backgroundImage = `linear-gradient(135deg, ${config.colorStart}, ${config.colorEnd})`;
+                    }
+                }
+                qElement.classList.toggle('rotate-180', currentRotations[visualSlotIndex]);
+            }
+        }
+
+
+        function resetGame() {
+            stopAllTimers();
+            releaseWakeLock();
+            
+             while(playerConfigs.length < numPlayers) {
+                const nextIndex = playerConfigs.length;
+                const baseConf = nextIndex < BASE_DEFAULT_PLAYER_CONFIGS.length ? BASE_DEFAULT_PLAYER_CONFIGS[nextIndex] : {};
+                playerConfigs.push({
+                    name: `Player ${nextIndex + 1}`,
+                    colorStart: baseConf.colorStart || generateRandomHexColor(),
+                    colorEnd: baseConf.colorEnd || generateRandomHexColor(),
+                    cssVarStart: baseConf.cssVarStart, 
+                    cssVarEnd: baseConf.cssVarEnd
+                });
+            }
+            playerConfigs = playerConfigs.slice(0, numPlayers); 
+
+            playerTimes = Array(numPlayers).fill(isCountUpMode ? 0 : (initialBaseTimeMinutes * 60) + initialBaseTimeSeconds);
+            longPressTimers = Array(numPlayers).fill(null);
+            longPressActionTakenFlags = Array(numPlayers).fill(false);
+            playerTurnStartTimestamps = Array(numPlayers).fill(null);
+            playerByoYomiPeriodsUsed = Array(numPlayers).fill(0);
+            playerInByoYomiPhase = Array(numPlayers).fill(false);
+
+            activePlayerIndex = -1; 
+            currentTurnPlayerIndex = 0; 
+            mainTurnHolderIndex = 0; 
+            isPaused = true;
+            fullscreenAttemptedInLandscape = false;
+            gameHasStartedOnce = false; 
+            
+            setupQuadrantsAndDOM(); 
+
+            playerElements.forEach(q => { 
+                q.classList.remove('timed-out-player', 'active', 'timeout-flash-animation', 'long-pressing', 'yellow-warning', 'red-warning');
+            });
+            
+            updateDisplay();
+        }
+        
+        function loadSettings() {
+            const savedSettings = localStorage.getItem(LOCAL_STORAGE_SETTINGS_KEY);
+
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                
+                numPlayersInput.value = settings.numPlayers !== undefined ? settings.numPlayers : 4;
+                numPlayers = parseInt(numPlayersInput.value);
+
+                initialBaseTimeMinutesInput.value = (settings.initialBaseTimeMinutes && parseInt(settings.initialBaseTimeMinutes) >= 0) ? 
+                                         parseInt(settings.initialBaseTimeMinutes) : DEFAULT_INITIAL_BASE_MINUTES;
+                initialBaseTimeSecondsInput.value = (settings.initialBaseTimeSeconds && parseInt(settings.initialBaseTimeSeconds) >= 0 && parseInt(settings.initialBaseTimeSeconds) < 60) ?
+                                            parseInt(settings.initialBaseTimeSeconds) : 0;
+                timeAdditionSecondsInput.value =
+                    (settings.timeAdditionSeconds !== undefined &&
+                    !isNaN(parseInt(settings.timeAdditionSeconds)) &&
+                    parseInt(settings.timeAdditionSeconds) >= 0)
+                        ? parseInt(settings.timeAdditionSeconds)
+                        : DEFAULT_INITIAL_ADDITION_SECONDS;
+
+                delayBeforeTickSecondsInput.value = (settings.delayBeforeTickSeconds !== undefined && !isNaN(parseInt(settings.delayBeforeTickSeconds)) && parseInt(settings.delayBeforeTickSeconds) >= 0 && parseInt(settings.delayBeforeTickSeconds) <= 5) ?
+                                                    parseInt(settings.delayBeforeTickSeconds) : 0;
+                delayBeforeTickSeconds = parseInt(delayBeforeTickSecondsInput.value);
+                
+                countUpToggle.checked = settings.isCountUpMode === true;
+                isCountUpMode = countUpToggle.checked; 
+                
+                playerConfigs = [];
+                if (settings.playerConfigs && Array.isArray(settings.playerConfigs)) {
+                    const configsToLoad = settings.playerConfigs.slice(0, numPlayers);
+                    for (let i = 0; i < numPlayers; i++) { 
+                        const savedPc = configsToLoad[i]; 
+                        const basePc = i < BASE_DEFAULT_PLAYER_CONFIGS.length ? BASE_DEFAULT_PLAYER_CONFIGS[i] : {};
+                        playerConfigs.push({
+                            name: (savedPc && savedPc.name) ? savedPc.name : `Player ${i + 1}`,
+                            colorStart: (savedPc && savedPc.colorStart) ? savedPc.colorStart : (basePc.colorStart || generateRandomHexColor()),
+                            colorEnd: (savedPc && savedPc.colorEnd) ? savedPc.colorEnd : (basePc.colorEnd || generateRandomHexColor()),
+                            cssVarStart: basePc.cssVarStart, 
+                            cssVarEnd: basePc.cssVarEnd
+                        });
+                    }
+                } else { 
+                    for (let i = 0; i < numPlayers; i++) {
+                        const basePc = i < BASE_DEFAULT_PLAYER_CONFIGS.length ? BASE_DEFAULT_PLAYER_CONFIGS[i] : {};
+                        playerConfigs.push({
+                            name: `Player ${i + 1}`,
+                            colorStart: basePc.colorStart || generateRandomHexColor(),
+                            colorEnd: basePc.colorEnd || generateRandomHexColor(),
+                            cssVarStart: basePc.cssVarStart,
+                            cssVarEnd: basePc.cssVarEnd
+                        });
+                    }
+                }
+                while(playerConfigs.length < numPlayers) {
+                    const idx = playerConfigs.length;
+                    const base = idx < BASE_DEFAULT_PLAYER_CONFIGS.length ? BASE_DEFAULT_PLAYER_CONFIGS[idx] : {};
+                    playerConfigs.push({
+                        name: `Player ${idx + 1}`,
+                        colorStart: base.colorStart || generateRandomHexColor(),
+                        colorEnd: base.colorEnd || generateRandomHexColor(),
+                        cssVarStart: base.cssVarStart, cssVarEnd: base.cssVarEnd
+                    });
+                }
+                if(playerConfigs.length > numPlayers) playerConfigs = playerConfigs.slice(0, numPlayers);
+
+
+                longTurnWarningToggle.checked = settings.longTurnWarningEnabled === true; 
+                lowTimeWarningToggle.checked = settings.lowTimeWarningEnabled === true;
+                if (isCountUpMode) { 
+                    lowTimeWarningToggle.checked = false;
+                    lowTimeWarningToggle.disabled = true;
+                    initialBaseTimeMinutesInput.disabled = true;
+                    initialBaseTimeSecondsInput.disabled = true;
+                } else {
+                    lowTimeWarningToggle.disabled = false;
+                    initialBaseTimeMinutesInput.disabled = false;
+                    initialBaseTimeSecondsInput.disabled = false;
+                }
+
+                fullRotationIncrementToggle.checked = settings.fullRotationIncrementEnabled === true;             
+                incrementOnEveryTurnEndToggle.checked = settings.incrementOnEveryTurnEnd === true;
+                incrementOnEveryTurnEnd = settings.incrementOnEveryTurnEnd === true;
+
+                byoYomiTimeSeconds = (settings.byoYomiTime !== undefined && !isNaN(parseInt(settings.byoYomiTime)) && parseInt(settings.byoYomiTime) >= 0) ?
+                                    parseInt(settings.byoYomiTime) : 30;
+                byoYomiPeriods = (settings.byoYomiPeriods !== undefined && !isNaN(parseInt(settings.byoYomiPeriods)) && parseInt(settings.byoYomiPeriods) >= 0) ?
+                                parseInt(settings.byoYomiPeriods) : 1;
+
+                if (settings.playerInByoYomiPhase && Array.isArray(settings.playerInByoYomiPhase)) {
+                    playerInByoYomiPhase = settings.playerInByoYomiPhase.slice(0, numPlayers);
+                } else {
+                    playerInByoYomiPhase = Array(numPlayers).fill(false);
+                }
+
+            } else { 
+                numPlayersInput.value = 4;
+                numPlayers = 4;
+                initialBaseTimeMinutesInput.value = DEFAULT_INITIAL_BASE_MINUTES;
+                initialBaseTimeSecondsInput.value = 0;
+                countUpToggle.checked = false;
+                isCountUpMode = false;
+                
+                playerConfigs = [];
+                 for (let i = 0; i < numPlayers; i++) { 
+                    const basePc = BASE_DEFAULT_PLAYER_CONFIGS[i]; 
+                    playerConfigs.push({ ...basePc }); 
+                }
+
+                longTurnWarningToggle.checked = false; 
+                lowTimeWarningToggle.checked = false;
+                fullRotationIncrementToggle.checked = false; 
+                lowTimeWarningToggle.disabled = false;
+                initialBaseTimeInput.disabled = false;
+            }
+            
+            setupPlayerSettingsUI(numPlayers); 
+            applyAndResetGame(); 
+        }
+
+        settingsToggleButton.addEventListener('click', () => { 
+            setupPlayerSettingsUI(parseInt(numPlayersInput.value)); 
+
+            // Populate player selection for adding time
+            playerSelectAddTime.innerHTML = '';
+            for (let i = 0; i < numPlayers; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = playerConfigs[i].name;
+                playerSelectAddTime.appendChild(option);
+            }
+
+            settingsModal.style.display = 'flex'; 
+        });
+        closeSettingsButton.addEventListener('click', () => { settingsModal.style.display = 'none'; });
+        applySettingsButton.addEventListener('click', () => { 
+            applyAndResetGame(); 
+            settingsModal.style.display = 'none'; 
+        });
+
+        addTimeButton.addEventListener('click', () => {
+            if (!isPaused) {
+                alert("You can only add time when the game is paused.");
+                return;
+            }
+            const selectedPlayerIndex = parseInt(playerSelectAddTime.value);
+            const timeToAdd = parseInt(timeToAddSecondsInput.value);
+
+            if (isNaN(selectedPlayerIndex) || selectedPlayerIndex < 0 || selectedPlayerIndex >= numPlayers) {
+                alert("Please select a valid player.");
+                return;
+            }
+            if (isNaN(timeToAdd) || timeToAdd <= 0) {
+                alert("Please enter a valid amount of time to add.");
+                return;
+            }
+
+            playerTimes[selectedPlayerIndex] += timeToAdd;
+            updateDisplay();
+            playBeep(600, 0.1, 'sine', 0.3); // Confirmation sound
+        });
+
+        window.addEventListener('click', (event) => { 
+            if (event.target == settingsModal) {
+                settingsModal.style.display = 'none'; 
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            wakeLockVideo = document.getElementById('wakeLockVideo');
+            loadSettings(); 
+            const lowTimeWarningLabel = document.querySelector('label[for="low-time-warning-toggle"]');
+            if(lowTimeWarningLabel) {
+                lowTimeWarningLabel.textContent = `Enable Low Total Time Warning (< ${LOW_TIME_PERCENTAGE_THRESHOLD * 100}% of initial)`;
+            }
+        });
+    </script>
+    <video id="wakeLockVideo" loop muted playsinline style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;" aria-hidden="true">
+        <source src="data:video/webm;base64,GkXfo0AgQoaBAUL3gQFC8oEEQvOBCEKCQAR3ZWJtQoeBAkKFgQIYU4BnQI0VSalmBwgAAAAImJMBAwAAAAAAIAA2AIAhAYoBAAIAQAgAAAAAAABZU4BuAQAAAAAAAKAAAhgxgwFC8oUIkAQEAEiRAQEADIgAIQkECgACAAABAAIAgAAAAAIAAwAIBAQGCAgIBgYICAoLAhAYGAQEDAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=" type="video/webm">
+    </video>
+</body>
+</html>
