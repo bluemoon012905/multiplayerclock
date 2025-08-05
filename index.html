@@ -4,10 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>cEDH Clock Enhanced v2 - VictorJuliani</title>
+    <!-- Google Ads -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7551753720999910"
      crossorigin="anonymous"></script>
     <style>
+        /* 
+         * =================================================================================================
+         * CSS STYLES
+         * =================================================================================================
+         */
+
+        /* 
+         * -------------------------------------------------------------------------------------------------
+         * CSS Variables (Custom Properties)
+         * -------------------------------------------------------------------------------------------------
+         * Defines the color palette and other reusable values for the entire application.
+         * This makes it easy to theme the application and maintain a consistent look and feel.
+         */
         :root {
+            /* Default gradient colors for each of the 4 players */
             --p1-color-start: #D32F2F;
             --p1-color-end: #B71C1C;
             --p2-color-start: #1976D2;
@@ -17,33 +32,57 @@
             --p4-color-start: #FFA000;
             --p4-color-end: #FF6F00;
 
+            /* General UI colors */
             --text-color: #FFFFFF;
-            --inactive-overlay: rgba(0, 0, 0, 0.5);
-            --active-glow-color: rgba(255, 255, 255, 0.8); 
+            --inactive-overlay: rgba(0, 0, 0, 0.5); /* Dark overlay for inactive players */
+            --active-glow-color: rgba(255, 255, 255, 0.8); /* Glow effect for the active player */
             
+            /* Pause button colors */
             --pause-icon-color: #FFFFFF;
             --pause-icon-stroke-color: rgba(0, 0, 0, 0.65);
             --pause-icon-shadow-color: rgba(0,0,0,0.5);
 
+            /* Settings modal colors */
             --settings-bg: #424242;
             --settings-hover-bg: #616161;
             --settings-icon-color: #E0E0E0;
 
+            /* Colors for a player who has timed out */
             --timed-out-stripe1: rgba(0,0,0,0.35);
             --timed-out-stripe2: rgba(0,0,0,0.45);
             --timed-out-bg-start: #666666; 
             --timed-out-bg-end: #4c4c4c;   
 
-            /* Warning Glow RGB values */
+            /* RGB values for the warning glows (used in animations) */
             --yellow-warning-glow-rgb: 255, 230, 0;
             --red-warning-glow-rgb: 255, 17, 0;
         }
 
-        /* Keyframes for breathing glow opacity (applied to pseudo-element) */
+        /* 
+         * -------------------------------------------------------------------------------------------------
+         * Keyframe Animations
+         * -------------------------------------------------------------------------------------------------
+         */
+
+        /* "Breathing" glow effect for warnings */
         @keyframes breathe-glow {
             0%, 100% { opacity: 0.45; } 
             50% { opacity: 1.0; }    
         }
+
+        /* Flashing animation for when a player times out */
+        @keyframes flash-timeout {
+            0%, 100% { filter: brightness(100%); transform: scale(1); }
+            25% { filter: brightness(180%) contrast(150%); transform: scale(1.02); }
+            50% { filter: brightness(60%); transform: scale(0.98); }
+            75% { filter: brightness(180%) contrast(150%); transform: scale(1.02); }
+        }
+
+        /* 
+         * -------------------------------------------------------------------------------------------------
+         * General Body and Layout Styles
+         * -------------------------------------------------------------------------------------------------
+         */
 
         body {
             font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -51,21 +90,27 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            width: 100vw;
+            height: 100vh; /* Full viewport height */
+            width: 100vw;  /* Full viewport width */
             margin: 0;
             background-color: #212121;
             color: var(--text-color);
-            touch-action: manipulation;
-            overflow: hidden;
+            touch-action: manipulation; /* Prevents double-tap to zoom on mobile */
+            overflow: hidden; /* Hides scrollbars */
         }
 
         #clock-container {
-            display: grid;
+            display: grid; /* Uses CSS Grid to lay out the player quadrants */
             width: 100%;
             height: 100%;
             position: relative;
         }
+
+        /* 
+         * -------------------------------------------------------------------------------------------------
+         * Player Quadrant Styles
+         * -------------------------------------------------------------------------------------------------
+         */
 
         .quadrant {
             display: flex;
@@ -73,7 +118,7 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            user-select: none;
+            user-select: none; /* Prevents text selection */
             transition: background 0.4s ease, opacity 0.3s ease, filter 0.2s ease; 
             position: relative; 
             font-weight: bold;
@@ -83,10 +128,13 @@
             border-radius: 8px; 
             overflow: hidden; 
         }
+
+        /* Style for when a player is being long-pressed to be eliminated */
         .quadrant.long-pressing {
             filter: brightness(0.7) contrast(1.1);
         }
 
+        /* Inactive player overlay */
         .quadrant::before { 
             content: '';
             position: absolute;
@@ -96,28 +144,31 @@
             transition: opacity 0.3s ease;
             z-index: 1; 
             border-radius: inherit; 
-            pointer-events: none;
+            pointer-events: none; /* Allows clicks to pass through the overlay */
         }
         
+        /* Ensure quadrant content (text) appears above the overlay */
         .quadrant > * { 
             position: relative;
             z-index: 2; 
         }
         
+        /* Rotates the text for top-row players to be readable from across the table */
         .quadrant.rotate-180 .player-name,
         .quadrant.rotate-180 .time-display {
             transform: rotate(180deg);
         }
 
-
+        /* Active player styles */
         .quadrant.active::before {
-            opacity: 0; 
+            opacity: 0; /* Hides the inactive overlay */
         }
 
         .quadrant.active { 
             box-shadow: inset 0 0 20px 5px var(--active-glow-color), 0 0 15px var(--active-glow-color);
         }
 
+        /* Warning glow effects (for low time or long turns) */
         .quadrant.yellow-warning::after,
         .quadrant.red-warning::after {
             content: '';
@@ -127,7 +178,7 @@
             z-index: 0; 
             pointer-events: none; 
             animation: breathe-glow 2.2s ease-in-out infinite alternate;
-            transform: translateZ(0); 
+            transform: translateZ(0); /* Promotes the animation to its own layer for performance */
         }
 
         .quadrant.yellow-warning::after {
@@ -138,6 +189,7 @@
             box-shadow: inset 0 0 8vmin 4vmin rgba(var(--red-warning-glow-rgb), 0.85);
         }
         
+        /* Styles for a player who has run out of time */
         .quadrant.timed-out-player {
             background-image: 
                 repeating-linear-gradient( 
@@ -165,18 +217,35 @@
             opacity: 0.8;
         }
 
-        @keyframes flash-timeout {
-            0%, 100% { filter: brightness(100%); transform: scale(1); }
-            25% { filter: brightness(180%) contrast(150%); transform: scale(1.02); }
-            50% { filter: brightness(60%); transform: scale(0.98); }
-            75% { filter: brightness(180%) contrast(150%); transform: scale(1.02); }
+        .player-controls {
+            position: absolute;
+            bottom: 10px;
+            display: flex;
+            gap: 10px;
         }
+
+        .control-button {
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .control-button.toggled, .control-button:active, .control-button.long-pressing {
+            background-color: rgba(255, 255, 255, 0.4);
+            color: black;
+        }
+
         .timeout-flash-animation {
             animation: flash-timeout 0.8s ease-in-out;
         }
 
+        /* Text styles within the quadrants */
         .player-name {
-            font-size: clamp(14px, 3.5vmin, 28px);
+            font-size: clamp(14px, 3.5vmin, 28px); /* Responsive font size */
             margin-bottom: 1vh;
             opacity: 0.9;
         }
@@ -187,17 +256,17 @@
             letter-spacing: -0.02em;
         }
 
-        .byo-yomi-display {
+        .byo-yomi-display, .delay-display {
             font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
-            font-size: clamp(14px, 3.5vmin, 28px);
+            font-size: clamp(12px, 3.5vmin, 28px);
             opacity: 0.8;
         }
 
-        .delay-display {
-            font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
-            font-size: clamp(12px, 3vmin, 24px);
-            opacity: 0.7;
-        }
+        /* 
+         * -------------------------------------------------------------------------------------------------
+         * Central Pause/Play Button
+         * -------------------------------------------------------------------------------------------------
+         */
 
         #pause-button {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -206,11 +275,17 @@
             display: flex; align-items: center; justify-content: center;
             font-size: clamp(40px, 12vmin, 70px); cursor: pointer; user-select: none;
             border-radius: 50%; z-index: 10; transition: transform 0.1s ease;
-            -webkit-text-stroke: 1.5px var(--pause-icon-stroke-color);
+            -webkit-text-stroke: 1.5px var(--pause-icon-stroke-color); /* Creates a border around the emoji */
             text-stroke: 1.5px var(--pause-icon-stroke-color);
             paint-order: stroke fill; text-shadow: 2px 2px 5px var(--pause-icon-shadow-color);
         }
         #pause-button:active { transform: translate(-50%, -50%) scale(0.92); }
+
+        /* 
+         * -------------------------------------------------------------------------------------------------
+         * Settings Modal Styles
+         * -------------------------------------------------------------------------------------------------
+         */
 
         #settings-toggle {
             position: fixed; top: 20px; right: 20px; background: var(--settings-bg);
@@ -224,7 +299,8 @@
         #settings-toggle:active { transform: scale(0.95); }
 
         #settings-modal {
-            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            display: none; /* Hidden by default */
+            position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
             overflow: auto; background-color: rgba(0,0,0,0.5); -webkit-backdrop-filter: blur(8px);
             backdrop-filter: blur(8px); align-items: center; justify-content: center;
         }
@@ -252,6 +328,7 @@
         .settings-main-actions #close-settings { background-color: #f44336; color: white; }
         .settings-main-actions #close-settings:hover { background-color: #e53935; }
 
+        /* Form elements within the settings modal */
         .settings-content label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.95em; color: #ddd; }
         .settings-content input[type="number"],
         .settings-content input[type="text"] { 
@@ -268,6 +345,7 @@
         .settings-content input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
         .settings-content input[type="color"]::-moz-color-swatch { border: none; border-radius: 5px; }
         
+        /* Collapsible sections within settings */
         .settings-collapsible {
             background-color: rgba(60,60,60,0.7);
             border-radius: 6px;
@@ -319,6 +397,7 @@
             font-size: 0.9em;
         }
 
+        /* Other settings styles */
         .settings-divider {
             height: 1px; background-color: #5f5f5f; margin: 25px 0;
         }
@@ -346,21 +425,38 @@
     </style>
 </head>
 <body>
+    <!-- 
+     * =================================================================================================
+     * HTML BODY
+     * =================================================================================================
+     -->
+
+    <!-- This container will hold the dynamically generated player quadrants -->
     <div id="clock-container">
         <!-- Quadrants will be dynamically generated here by JavaScript -->
     </div>
 
+    <!-- The settings icon (gear) that toggles the settings modal -->
     <button id="settings-toggle">⚙️</button>
 
+    <!-- 
+     * -------------------------------------------------------------------------------------------------
+     * Settings Modal
+     * -------------------------------------------------------------------------------------------------
+     * This is the popup that contains all the user-configurable options.
+     * It is hidden by default and shown when the settings icon is clicked.
+     -->
     <div id="settings-modal">
         <div class="settings-content">
             <h2>Settings</h2>
 
+            <!-- Main action buttons for the settings modal -->
             <div class="settings-main-actions">
                 <button id="apply-settings">Apply Settings & Reset Game</button>
                 <button id="close-settings">Close</button>
             </div>
 
+            <!-- Collapsible section for timer settings -->
             <details class="settings-collapsible">
                 <summary>Timer Settings</summary>
                 <div class="collapsible-content">
@@ -402,18 +498,21 @@
                 </div>
             </details>
             
+            <!-- Collapsible section for player customization (names, colors) -->
             <details class="settings-collapsible" open> <!-- Made this open by default -->
                 <summary>Player Customizations</summary>
                 <div class="collapsible-content">
                     <label for="num-players-input">Number of Players (1-8):</label>
                     <input type="number" id="num-players-input" value="4" min="1" max="8" style="margin-bottom: 20px;">
                     
+                    <!-- This div will be populated with player name and color inputs by JavaScript -->
                     <div id="player-customization-dynamic-area">
                         <!-- Player name and color inputs will be dynamically generated here -->
                     </div>
                 </div>
             </details>
 
+            <!-- Collapsible section for warning customizations -->
             <details class="settings-collapsible">
                 <summary>Warning Customizations</summary>
                 <div class="collapsible-content">
@@ -430,6 +529,7 @@
             
             <div class="settings-divider"></div>
 
+            <!-- Collapsible section for manual time adjustment -->
             <details class="settings-collapsible">
                 <summary>Manual Time Adjustment</summary>
                 <div class="collapsible-content">
@@ -443,6 +543,7 @@
                 </div>
             </details>
 
+            <!-- How-to-play instructions -->
             <div class="settings-howto-section">
                 <h3>How to Play:</h3>
                 <ul>
@@ -457,11 +558,12 @@
                 </ul>
             </div>
 
+            <!-- Credits -->
             <div class="settings-credits">
                 Created by <a href="https://github.com/VictorJuliani" target="_blank" rel="noopener noreferrer">Victor Juliani</a>
             </div>
 
-            <!-- START PAYPAL DONATION BUTTON SECTION -->
+            <!-- PayPal Donation Button -->
             <div id="donate-button-container" style="text-align: center; margin-top: 25px; margin-bottom: 10px;">
                 <div id="donate-button">
                     <!-- Fallback content if JS fails or SDK is blocked -->
@@ -495,22 +597,35 @@
                 }
                 </script>
             </div>
-            <!-- END PAYPAL DONATION BUTTON SECTION -->
-
         </div>
     </div>
+    <!-- The central pause/play button -->
     <div id="pause-button">▶️</div> 
 
 
     <script>
+        /* 
+         * =================================================================================================
+         * JAVASCRIPT LOGIC
+         * =================================================================================================
+         */
+
+        /* 
+         * -------------------------------------------------------------------------------------------------
+         * Constants and Global Variables
+         * -------------------------------------------------------------------------------------------------
+         */
+
+        // --- Constants ---
         const DEFAULT_INITIAL_BASE_MINUTES = 20;
         const DEFAULT_INITIAL_ADDITION_SECONDS = 0;
-        const LOCAL_STORAGE_SETTINGS_KEY = 'cEDHClockSettingsEnhanced_v2_VJ';
+        const LOCAL_STORAGE_SETTINGS_KEY = 'cEDHClockSettingsEnhanced_v2_VJ'; // Key for saving settings in browser
         const MAX_SUPPORTED_PLAYERS = 8; 
-        const LONG_PRESS_DURATION = 3000;
-        const LONG_TURN_THRESHOLD_SECONDS = 60; 
-        const LOW_TIME_PERCENTAGE_THRESHOLD = 0.25;
+        const LONG_PRESS_DURATION = 3000; // 3 seconds to manually eliminate a player
+        const LONG_TURN_THRESHOLD_SECONDS = 60; // 1 minute for the long turn warning
+        const LOW_TIME_PERCENTAGE_THRESHOLD = 0.25; // 25% for the low time warning
 
+        // --- Default Player Configurations ---
         const BASE_DEFAULT_PLAYER_CONFIGS = [
             { name: "Player 1", colorStart: '#e88a8a', colorEnd: '#cc5c5c', cssVarStart: '--p1-color-start', cssVarEnd: '--p1-color-end' },
             { name: "Player 2", colorStart: '#64b5f6', colorEnd: '#1976d2', cssVarStart: '--p2-color-start', cssVarEnd: '--p2-color-end' },
@@ -518,50 +633,67 @@
             { name: "Player 4", colorStart: '#e1b382', colorEnd: '#d18f52', cssVarStart: '--p4-color-start', cssVarEnd: '--p4-color-end' }
         ];
         
+        // --- Game State Variables ---
         let numPlayers = 4; 
         let playerConfigs = []; 
 
-        let playerTimes = [];
-        let activePlayerIndex = -1; 
-        let currentTurnPlayerIndex = 0; 
-        let timerInterval = null;
-        let isPaused = true;
+        let playerTimes = []; // Holds the current time in seconds for each player
+        let playerTimeSnapshots = []; // Holds a snapshot of player time for accurate calculations
+        let activePlayerIndex = -1; // The index of the player whose timer is currently running
+        let currentTurnPlayerIndex = 0; // The index of the player who has the turn
+        let timerInterval = null; // The interval ID for the main timer loop
+        let isPaused = true; // Flag to indicate if the game is paused
+        let gameHasStartedOnce = false; // Flag to play startup melody only once
+
+        // --- Timekeeping Variables for Precision Timer ---
+        let timeAnchor = 0; // The timestamp (from performance.now()) when the timer was last started/resumed
+        let accumulatedElapsed = 0; // The total time elapsed while the timer was paused
+
+        // --- Settings Variables ---
         let initialBaseTimeSeconds = 0;
         let timeAdditionSecondsPerTurn = DEFAULT_INITIAL_ADDITION_SECONDS;
-        let delayBeforeTickSeconds = 0; 
-        let fullscreenAttemptedInLandscape = false;
-        let gameHasStartedOnce = false; 
-        
+        let delayBeforeTickSeconds = 0;
+        let isCountUpMode = false;
+        let byoYomiTimeSeconds = 30;
+        let byoYomiPeriods = 1;
+        let playerByoYomiPeriodsUsed = [];
+        let playerInByoYomiPhase = [];
+        let isFullRotationIncrementEnabled = false; 
+        let incrementOnEveryTurnEnd = false;
+        let mainTurnHolderIndex = 0;
+
+        // --- Warning and Interaction Variables ---
         let longPressTimers = [];
         let longPressActionTakenFlags = [];
-
         let isLongTurnWarningEnabled = false;
         let isLowTimeWarningEnabled = false;
         let playerTurnStartTimestamps = []; 
 
-        let isFullRotationIncrementEnabled = false; 
-        let incrementOnEveryTurnEnd = false; // New variable for increment on every turn end
-        let mainTurnHolderIndex = 0;   
-        let isCountUpMode = false;          
-
-        let byoYomiTimeSeconds = 30; // New variable for Byo-Yomi time
-        let byoYomiPeriods = 1; // New variable for Byo-Yomi periods
-        let playerByoYomiPeriodsUsed = []; // To track periods used by each player
-        let playerInByoYomiPhase = []; // To track if a player is in byo-yomi mode
-
+        // --- Wake Lock Variables (to prevent screen from sleeping) ---
         let wakeLock = null;
         let usingWakeLockAPI = ('wakeLock' in navigator);
         let wakeLockVideo = null; 
+        let fullscreenAttemptedInLandscape = false;
 
+        // --- DOM Element References ---
         let playerElements = []; 
         let timeDisplayElements = [];
         let playerNameSpans = [];
         let dynPlayerNameInputs = [];
         let dynColorStartInputs = [];
         let dynColorEndInputs = [];
-        let visualToLogicalMap = []; 
+        let visualToLogicalMap = []; // Maps the visual quadrant position to the logical player index
 
+        /* 
+         * -------------------------------------------------------------------------------------------------
+         * Core Functions
+         * -------------------------------------------------------------------------------------------------
+         */
 
+        /**
+         * Requests a screen wake lock to prevent the device from sleeping.
+         * Falls back to a silent video loop if the Wake Lock API is not available.
+         */
         const requestWakeLock = async () => {
             if (usingWakeLockAPI) {
                 try {
@@ -585,6 +717,9 @@
             }
         };
 
+        /**
+         * Releases the screen wake lock.
+         */
         const releaseWakeLock = async () => {
             if (usingWakeLockAPI) {
                 if (wakeLock !== null) {
@@ -596,6 +731,9 @@
             }
         };
 
+        /**
+         * Handles visibility changes to re-request the wake lock if the tab becomes visible again.
+         */
         const handleVisibilityChange = () => {
             if (usingWakeLockAPI && document.visibilityState === 'visible' && !isPaused && activePlayerIndex !== -1) {
                 requestWakeLock();
@@ -603,6 +741,10 @@
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
+        /**
+         * Initializes the Web Audio API context.
+         * This is necessary to play sounds and must be triggered by a user interaction.
+         */
         let audioContext;
         function initAudioContext() {
             if (!audioContext) {
@@ -617,6 +759,13 @@
         document.addEventListener('click', initAudioContext, { once: true });
         document.addEventListener('touchstart', initAudioContext, { once: true });
 
+        /**
+         * Plays a simple beep sound.
+         * @param {number} frequency - The frequency of the beep in Hz.
+         * @param {number} duration - The duration of the beep in seconds.
+         * @param {string} type - The waveform type (e.g., 'sine', 'square').
+         * @param {number} volume - The volume of the beep (0 to 1).
+         */
         function playBeep(frequency = 440, duration = 0.1, type = 'sine', volume = 0.3) {
             if (!audioContext) { return; }
             if (audioContext.state === 'suspended') { audioContext.resume(); }
@@ -630,6 +779,9 @@
             } catch (e) { console.error("Error playing beep:", e); }
         }
 
+        /**
+         * Plays a short melody on game start.
+         */
         const startupMelodyNotes = [
             { freq: 392.00, duration: 0.075, delay: 0.0, type: 'square' },
             { freq: 466.16, duration: 0.075, delay: 0.085, type: 'square' },
@@ -643,7 +795,7 @@
             try {
                 const now = audioContext.currentTime;
                 const overallGain = audioContext.createGain();
-                overallGain.gain.setValueAtTime(0.15, now); 
+                overallGain.gain.setValueAtTime(0.15, now);
                 overallGain.connect(audioContext.destination);
                 startupMelodyNotes.forEach(note => {
                     const o = audioContext.createOscillator(), gn = audioContext.createGain();
@@ -657,6 +809,7 @@
             } catch (e) { console.error("Error playing startup melody:", e); }
         }
         
+        // --- DOM Element Lookups ---
         const clockContainer = document.getElementById('clock-container');
         const pauseButton = document.getElementById('pause-button');
         const settingsToggleButton = document.getElementById('settings-toggle');
@@ -673,7 +826,7 @@
         const countUpToggle = document.getElementById('count-up-toggle');
         const incrementOnEveryTurnEndToggle = document.getElementById('increment-on-every-turn-end-toggle');
         
-        const playerCustomizationDynamicArea = document.getElementById('player-customization-dynamic-area'); // Changed ID
+        const playerCustomizationDynamicArea = document.getElementById('player-customization-dynamic-area');
 
         const byoYomiTimeInput = document.getElementById('byo-yomi-time-seconds');
         const byoYomiPeriodsInput = document.getElementById('byo-yomi-periods');
@@ -687,14 +840,28 @@
 
         const rootStyle = document.documentElement.style;
 
+        /**
+         * Generates a random hex color code.
+         * @returns {string} A random color (e.g., '#1a2b3c').
+         */
         function generateRandomHexColor() {
             return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
         }
         
+        /**
+         * Gets the DOM element for a player quadrant by their logical index.
+         * @param {number} logicalPlayerIndex - The player's index (0 to numPlayers-1).
+         * @returns {HTMLElement|undefined} The quadrant element.
+         */
         function getQuadrantDOMByLogicalIndex(logicalPlayerIndex) {
             return playerElements.find(el => el && parseInt(el.dataset.playerIndex) === logicalPlayerIndex);
         }
         
+        /**
+         * Checks if a player is out of the game (timed out or manually eliminated).
+         * @param {number} logicalPlayerIndex - The player's index.
+         * @returns {boolean} True if the player is out of the game.
+         */
         function isPlayerEffectivelyOutOfGame(logicalPlayerIndex) {
             if (logicalPlayerIndex < 0 || logicalPlayerIndex >= numPlayers) return true;
             const q = getQuadrantDOMByLogicalIndex(logicalPlayerIndex);
@@ -702,29 +869,41 @@
             return timedOutByClock || (q && q.classList.contains('timed-out-player'));
         }
         
+        /**
+         * Gets the index of the next player in clockwise order.
+         * @param {number} currentLogicalPlayerIndex - The current player's index.
+         * @returns {number} The next player's index.
+         */
         function getNextLogicalPlayerIndex(currentLogicalPlayerIndex) {
             return (currentLogicalPlayerIndex + 1) % numPlayers;
         }
 
+        /**
+         * Finds the next valid player in the turn sequence, skipping over eliminated players.
+         * @param {number} startingLogicalPlayerIndex - The index to start searching from.
+         * @returns {number} The index of the next valid player, or -1 if no valid players are left.
+         */
         function findNextValidPlayerInSequence(startingLogicalPlayerIndex) {
             if (numPlayers <= 0) return -1;
 
             let nextLogicalPlayer = getNextLogicalPlayerIndex(startingLogicalPlayerIndex);
             let attempts = 0;
-            while (isPlayerEffectivelyOutOfGame(nextLogicalPlayer) && attempts < numPlayers) {
+            while ((isPlayerEffectivelyOutOfGame(nextLogicalPlayer) || playerConfigs[nextLogicalPlayer].f6) && attempts < numPlayers) {
                 if (nextLogicalPlayer === startingLogicalPlayerIndex && attempts > 0) {
-                    return -1; 
+                    return -1;
                 }
                 nextLogicalPlayer = getNextLogicalPlayerIndex(nextLogicalPlayer);
                 attempts++;
             }
-            if (attempts >= numPlayers && isPlayerEffectivelyOutOfGame(nextLogicalPlayer)) { 
+            if (attempts >= numPlayers && (isPlayerEffectivelyOutOfGame(nextLogicalPlayer) || playerConfigs[nextLogicalPlayer].f6)) {
                  return -1;
             }
             return nextLogicalPlayer;
         }
 
-
+        /**
+         * Attempts to enter fullscreen mode.
+         */
         function goFullScreen() {
             const elem = document.documentElement;
             if (elem.requestFullscreen) elem.requestFullscreen().catch(err => console.warn("FS failed:", err));
@@ -732,6 +911,9 @@
             else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
         }
 
+        /**
+         * On mobile devices, attempts to enter fullscreen when the device is in landscape mode.
+         */
         function attemptFullscreenOnMobileLandscape() {
             if (fullscreenAttemptedInLandscape) return;
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /MacIntel/.test(navigator.platform));
@@ -740,10 +922,13 @@
             const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
             if (isLandscape && !isFS) {
                 goFullScreen();
-                fullscreenAttemptedInLandscape = true; 
+                fullscreenAttemptedInLandscape = true;
             }
         }
         
+        /**
+         * Resets the fullscreen flag when the orientation changes back to portrait.
+         */
         function handleOrientationChangeForFlagReset() {
             if (!window.matchMedia("(orientation: landscape)").matches) {
                 fullscreenAttemptedInLandscape = false;
@@ -756,15 +941,23 @@
             window.addEventListener('orientationchange', handleOrientationChangeForFlagReset);
         }
 
+        /**
+         * Formats a time in seconds into a MM:SS string.
+         * @param {number} totalSeconds - The time in seconds.
+         * @returns {string} The formatted time string.
+         */
         function formatTime(totalSeconds) {
-            if (totalSeconds < 0 && !isCountUpMode) totalSeconds = 0; 
-            const absTotalSeconds = Math.abs(totalSeconds);
+            if (totalSeconds < 0 && !isCountUpMode) totalSeconds = 0;
+            const absTotalSeconds = Math.floor(Math.abs(totalSeconds));
             const m = Math.floor(absTotalSeconds / 60);
             const s = absTotalSeconds % 60;
-            const sign = totalSeconds < 0 ? "-" : ""; 
+            const sign = totalSeconds < 0 ? "-" : "";
             return `${sign}${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
 
+        /**
+         * Applies visual warning glows to quadrants based on game state.
+         */
         function applyVisualWarnings() {
             const now = performance.now();
             for (let logicalIdx = 0; logicalIdx < numPlayers; logicalIdx++) {
@@ -773,19 +966,21 @@
 
                 if (qElement.classList.contains('timed-out-player')) {
                     qElement.classList.remove('yellow-warning', 'red-warning');
-                    continue; 
+                    continue;
                 }
 
                 let needsYellow = false;
                 let needsRed = false;
 
-                if (isLowTimeWarningEnabled && !isCountUpMode) { 
+                // Low time warning (red glow)
+                if (isLowTimeWarningEnabled && !isCountUpMode) {
                     const lowTimeThresholdValue = ((initialBaseTimeMinutes * 60) + initialBaseTimeSeconds) * LOW_TIME_PERCENTAGE_THRESHOLD;
                     if (playerTimes[logicalIdx] > 0 && playerTimes[logicalIdx] <= lowTimeThresholdValue) {
                         needsRed = true;
                     }
                 }
 
+                // Long turn warning (yellow glow)
                 if (isLongTurnWarningEnabled && logicalIdx === activePlayerIndex && !isPaused && playerTurnStartTimestamps[logicalIdx] !== null) {
                     const currentTurnDurationSeconds = (now - playerTurnStartTimestamps[logicalIdx]) / 1000;
                     if (currentTurnDurationSeconds > LONG_TURN_THRESHOLD_SECONDS) {
@@ -798,6 +993,9 @@
             }
         }
 
+        /**
+         * Updates the entire UI (timers, active player, pause button) based on the current game state.
+         */
         function updateDisplay() {
             for (let logicalIdx = 0; logicalIdx < numPlayers; logicalIdx++) {
                 const visualElementIndex = visualToLogicalMap.indexOf(logicalIdx);
@@ -813,36 +1011,43 @@
                     }
                 }
 
-                const qElement = getQuadrantDOMByLogicalIndex(logicalIdx); 
+                const qElement = getQuadrantDOMByLogicalIndex(logicalIdx);
                 if (qElement) {
                     qElement.classList.toggle('active', logicalIdx === activePlayerIndex && !isPaused && !isPlayerEffectivelyOutOfGame(logicalIdx));
                 }
             }
-            applyVisualWarnings(); 
+            applyVisualWarnings();
             pauseButton.textContent = isPaused ? '▶️' : '⏸️';
         }
         
+        /**
+         * Stops the main timer interval.
+         */
         function stopAllTimers() {
             clearInterval(timerInterval);
             timerInterval = null;
         }
 
+        /**
+         * Manually eliminates a player from the game.
+         * @param {number} logicalPlayerIndex - The index of the player to eliminate.
+         */
         function manuallyDisablePlayer(logicalPlayerIndex) {
             const quadrant = getQuadrantDOMByLogicalIndex(logicalPlayerIndex);
             if (!quadrant || quadrant.classList.contains('timed-out-player')) {
                 return;
             }
             console.log(`Manually disabling ${playerConfigs[logicalPlayerIndex].name}`);
-            playBeep(220, 0.15, 'sawtooth', 0.25); // Sound for manual disable
+            playBeep(220, 0.15, 'sawtooth', 0.25);
 
-            quadrant.classList.add('timeout-flash-animation'); // Start flash
+            quadrant.classList.add('timeout-flash-animation');
 
-            setTimeout(() => { // After flash duration
+            setTimeout(() => {
                 if (quadrant) {
                     quadrant.classList.remove('timeout-flash-animation');
                     quadrant.classList.add('timed-out-player');
-                    quadrant.classList.remove('yellow-warning', 'red-warning', 'active'); 
-                    quadrant.style.backgroundImage = ''; // Clear custom gradient for striped background
+                    quadrant.classList.remove('yellow-warning', 'red-warning', 'active');
+                    quadrant.style.backgroundImage = '';
                 }
             }, 800);
 
@@ -858,62 +1063,66 @@
                     releaseWakeLock();
                 }
             }
-            updateDisplay(); // Update general display
+            updateDisplay();
         }
 
-        function handleTimeout(logicalPlayerIndex) { 
-            console.log(`handleTimeout called for player ${logicalPlayerIndex}. Current time: ${playerTimes[logicalPlayerIndex]}, In Byo-Yomi Phase: ${playerInByoYomiPhase[logicalPlayerIndex]}, Periods Used: ${playerByoYomiPeriodsUsed[logicalPlayerIndex]}`);
+        /**
+         * Handles the logic when a player's timer reaches zero.
+         * This includes transitioning to Byo-Yomi or eliminating the player.
+         * @param {number} timedOutPlayerIndex - The index of the player who timed out.
+         */
+        function handleTimeout(timedOutPlayerIndex) {
             if (isCountUpMode) return;
 
-            // If player is currently in main time and it runs out
-            if (!playerInByoYomiPhase[logicalPlayerIndex]) {
-                if (byoYomiPeriods > 0) {
-                    playerInByoYomiPhase[logicalPlayerIndex] = true;
-                    playerTimes[logicalPlayerIndex] = byoYomiTimeSeconds;
-                    playBeep(600, 0.1, 'sine', 0.3); // Sound for entering Byo-Yomi
-                    updateDisplay();
-                    console.log(`Player ${logicalPlayerIndex} entered Byo-Yomi phase. Time: ${playerTimes[logicalPlayerIndex]}`);
-                    return; // Do not eliminate player yet, they entered Byo-Yomi
-                }
+            // Transition to Byo-Yomi if applicable
+            if (!playerInByoYomiPhase[timedOutPlayerIndex] && byoYomiPeriods > 0) {
+                playerInByoYomiPhase[timedOutPlayerIndex] = true;
+                playerTimeSnapshots[timedOutPlayerIndex] = byoYomiTimeSeconds; // Set snapshot to Byo-Yomi time
+                playerTimes[timedOutPlayerIndex] = byoYomiTimeSeconds;
+                timeAnchor = performance.now(); // Reset anchor for the new period
+                accumulatedElapsed = 0;
+                playBeep(600, 0.1, 'sine', 0.3);
+                updateDisplay();
+                return; // Return here, the main timer loop will continue
             }
             
-            // If player is in Byo-Yomi and their current period runs out
-            if (playerInByoYomiPhase[logicalPlayerIndex]) {
-                playerByoYomiPeriodsUsed[logicalPlayerIndex]++;
-                console.log(`Player ${logicalPlayerIndex} used a Byo-Yomi period. Periods left: ${byoYomiPeriods - playerByoYomiPeriodsUsed[logicalPlayerIndex]}`);
-                if (playerByoYomiPeriodsUsed[logicalPlayerIndex] < byoYomiPeriods) {
-                    playerTimes[logicalPlayerIndex] = byoYomiTimeSeconds; // Reset time for next period
-                    playBeep(600, 0.1, 'sine', 0.3); // Sound for using a Byo-Yomi period
+            // Use a Byo-Yomi period if in that phase
+            if (playerInByoYomiPhase[timedOutPlayerIndex]) {
+                playerByoYomiPeriodsUsed[timedOutPlayerIndex]++;
+                if (playerByoYomiPeriodsUsed[timedOutPlayerIndex] < byoYomiPeriods) {
+                    playerTimeSnapshots[timedOutPlayerIndex] = byoYomiTimeSeconds; // Reset for next period
+                    playerTimes[timedOutPlayerIndex] = byoYomiTimeSeconds;
+                    timeAnchor = performance.now(); // Reset anchor
+                    accumulatedElapsed = 0;
+                    playBeep(600, 0.1, 'sine', 0.3);
                     updateDisplay();
-                    console.log(`Player ${logicalPlayerIndex} time reset for next Byo-Yomi period. Time: ${playerTimes[logicalPlayerIndex]}`);
-                    return; // Player used a period, not eliminated yet
+                    return; // Return, timer loop continues
                 }
             }
 
-            // If main time ran out and no Byo-Yomi periods, or all Byo-Yomi periods used
-            playerTimes[logicalPlayerIndex] = 0;
-            console.log(`Player ${logicalPlayerIndex} eliminated. Final time: ${playerTimes[logicalPlayerIndex]}`);
-            const timedOutQuadrant = getQuadrantDOMByLogicalIndex(logicalPlayerIndex);
+            // If no Byo-Yomi or all periods are used, eliminate the player
+            playerTimes[timedOutPlayerIndex] = 0;
+            const timedOutQuadrant = getQuadrantDOMByLogicalIndex(timedOutPlayerIndex);
 
             if (timedOutQuadrant && !timedOutQuadrant.classList.contains('timed-out-player')) {
-                 playBeep(880, 0.2, 'square', 0.4); 
-                 playBeep(880, 0.2, 'square', 0.4); 
+                 playBeep(880, 0.2, 'square', 0.4);
+                 playBeep(880, 0.2, 'square', 0.4);
                  
-                 timedOutQuadrant.classList.add('timeout-flash-animation'); // Start flash
+                 timedOutQuadrant.classList.add('timeout-flash-animation');
 
-                 setTimeout(() => { // After flash duration
+                 setTimeout(() => {
                     if (timedOutQuadrant) {
                         timedOutQuadrant.classList.remove('timeout-flash-animation');
                         timedOutQuadrant.classList.add('timed-out-player');
-                        timedOutQuadrant.classList.remove('yellow-warning', 'red-warning', 'active'); 
-                        timedOutQuadrant.style.backgroundImage = ''; // Clear custom gradient
-                        // updateDisplay(); // Optional: as above
+                        timedOutQuadrant.classList.remove('yellow-warning', 'red-warning', 'active');
+                        timedOutQuadrant.style.backgroundImage = '';
                     }
                  }, 800);
             }
             
-            if (activePlayerIndex === logicalPlayerIndex) {
-                 const nextPlayer = findNextValidPlayerInSequence(activePlayerIndex);
+            // If the eliminated player was the active one, pass the turn
+            if (activePlayerIndex === timedOutPlayerIndex) {
+                const nextPlayer = findNextValidPlayerInSequence(activePlayerIndex);
                 stopAllTimers();
                 if (nextPlayer !== -1) {
                     startTimerForPlayer(nextPlayer);
@@ -923,33 +1132,63 @@
                     releaseWakeLock();
                 }
             }
-            updateDisplay(); // Update general display
+            updateDisplay();
         }
 
+        /**
+         * The main timer tick function, called by setInterval.
+         * Calculates the elapsed time since the last anchor and updates the current player's time.
+         */
+        function timerTick() {
+            if (isPaused || activePlayerIndex === -1) return;
+
+            const elapsedMs = (performance.now() - timeAnchor) + accumulatedElapsed;
+            const elapsedSeconds = elapsedMs / 1000;
+
+            if (isCountUpMode) {
+                playerTimes[activePlayerIndex] = playerTimeSnapshots[activePlayerIndex] + elapsedSeconds;
+            } else {
+                playerTimes[activePlayerIndex] = playerTimeSnapshots[activePlayerIndex] - elapsedSeconds;
+                if (playerTimes[activePlayerIndex] <= 0) {
+                    handleTimeout(activePlayerIndex);
+                }
+            }
+            updateDisplay();
+        }
+
+        /**
+         * Starts the timer for a specific player.
+         * @param {number} logicalPlayerIndex - The index of the player to start the timer for.
+         */
         function startTimerForPlayer(logicalPlayerIndex) {
-            if (isPlayerEffectivelyOutOfGame(logicalPlayerIndex)) { 
+            if (isPlayerEffectivelyOutOfGame(logicalPlayerIndex)) {
                 updateDisplay();
                 return;
             }
 
-            stopAllTimers(); 
+            stopAllTimers();
             activePlayerIndex = logicalPlayerIndex;
-            currentTurnPlayerIndex = logicalPlayerIndex; 
-            isPaused = false; 
+            currentTurnPlayerIndex = logicalPlayerIndex;
+            isPaused = false;
             requestWakeLock();
             
-            playerTurnStartTimestamps = playerTurnStartTimestamps.map(() => null); 
+            playerTurnStartTimestamps = playerTurnStartTimestamps.map(() => null);
             playerTurnStartTimestamps[logicalPlayerIndex] = performance.now();
 
             if (!gameHasStartedOnce) {
-                initAudioContext(); 
+                initAudioContext();
                 playStartupMelody();
                 gameHasStartedOnce = true;
             }
+            
+            // Set up the anchors for the precision timer
+            timeAnchor = performance.now();
+            accumulatedElapsed = 0;
+            playerTimeSnapshots[logicalPlayerIndex] = playerTimes[logicalPlayerIndex];
 
-            // Apply delay before starting the actual timer
+            // Handle the initial delay before the timer starts ticking
             if (delayBeforeTickSeconds > 0) {
-                updateDisplay(); // Update display to show active player immediately
+                updateDisplay();
                 const delaySpan = getQuadrantDOMByLogicalIndex(logicalPlayerIndex).querySelector('.delay-display');
                 if(delaySpan) {
                     let delayRemaining = delayBeforeTickSeconds;
@@ -966,73 +1205,49 @@
                 }
 
                 setTimeout(() => {
-                    if (!isPaused && activePlayerIndex === logicalPlayerIndex) { // Ensure still active and not paused after delay
-                        startActualTimerInterval(logicalPlayerIndex);
+                    if (!isPaused && activePlayerIndex === logicalPlayerIndex) {
+                        timeAnchor = performance.now(); // Reset anchor after delay
+                        timerInterval = setInterval(timerTick, 100); // Start the high-frequency timer tick
                     }
                 }, delayBeforeTickSeconds * 1000);
             } else {
-                startActualTimerInterval(logicalPlayerIndex);
+                timerInterval = setInterval(timerTick, 100); // Start the high-frequency timer tick
             }
-        }
-
-        function startActualTimerInterval(logicalPlayerIndex) {
-            timerInterval = setInterval(() => {
-                if (!isPaused && playerTimes[activePlayerIndex] !== undefined && !isPlayerEffectivelyOutOfGame(activePlayerIndex)) {
-                    if (isCountUpMode) {
-                        playerTimes[activePlayerIndex]++;
-                    } else {
-                        playerTimes[activePlayerIndex]--;
-                        if (playerTimes[activePlayerIndex] <= 0) {
-                            handleTimeout(activePlayerIndex); 
-                        }
-                    }
-                    updateDisplay(); 
-                } else if (!isCountUpMode && playerTimes[activePlayerIndex] <= 0 && !isPaused) { 
-                    handleTimeout(activePlayerIndex);
-                } else if (isPlayerEffectivelyOutOfGame(activePlayerIndex) && !isPaused) {
-                    const nextPlayer = findNextValidPlayerInSequence(activePlayerIndex);
-                    stopAllTimers();
-                    if (nextPlayer !== -1) {
-                        startTimerForPlayer(nextPlayer);
-                    } else {
-                        isPaused = true;
-                        activePlayerIndex = -1;
-                        releaseWakeLock();
-                    }
-                    updateDisplay();
-                } else {
-                    if(isPaused) updateDisplay(); 
-                }
-            }, 1000);
             updateDisplay();
         }
 
+        /**
+         * Passes the turn from the currently active player to the next valid player.
+         */
         function passTurnFromActivePlayer() {
             if (activePlayerIndex === -1 || isPaused) return;
             if (isPlayerEffectivelyOutOfGame(activePlayerIndex)) {
-                if (!isPaused) togglePause(); 
+                if (!isPaused) togglePause();
                 return;
             }
             
-            const playerEndingTurnLogical = activePlayerIndex; 
+            const playerEndingTurnLogical = activePlayerIndex;
             handleEndOfTurnForPlayer(playerEndingTurnLogical);
             
-            stopAllTimers(); 
+            stopAllTimers();
             const nextLogicalPlayer = findNextValidPlayerInSequence(playerEndingTurnLogical);
 
             if (nextLogicalPlayer !== -1) {
-                startTimerForPlayer(nextLogicalPlayer); 
+                startTimerForPlayer(nextLogicalPlayer);
             } else {
                 isPaused = true;
-                activePlayerIndex = -1; 
+                activePlayerIndex = -1;
                 releaseWakeLock();
             }
-            updateDisplay(); 
+            updateDisplay();
         }
 
+        /**
+         * Handles the logic for when a player's turn ends (e.g., adding time, resetting Byo-Yomi).
+         * @param {number} logicalPlayerIndex - The index of the player whose turn is ending.
+         */
         function handleEndOfTurnForPlayer(logicalPlayerIndex) {
-            console.log(`handleEndOfTurnForPlayer called for player ${logicalPlayerIndex}. Initial time: ${playerTimes[logicalPlayerIndex]}, In Byo-Yomi Phase: ${playerInByoYomiPhase[logicalPlayerIndex]}`);
-            if (logicalPlayerIndex === -1) return; // No active player to handle
+            if (logicalPlayerIndex === -1) return;
 
             if (playerTurnStartTimestamps[logicalPlayerIndex] !== null) {
                 playerTurnStartTimestamps[logicalPlayerIndex] = null;
@@ -1040,18 +1255,16 @@
 
             // Byo-Yomi reset logic
             if (playerInByoYomiPhase[logicalPlayerIndex]) {
-                playerTimes[logicalPlayerIndex] = byoYomiTimeSeconds; // Reset Byo-Yomi period time
-                console.log(`Player ${logicalPlayerIndex} in Byo-Yomi phase. Time reset to: ${playerTimes[logicalPlayerIndex]}`);
+                playerTimes[logicalPlayerIndex] = byoYomiTimeSeconds;
             }
 
             // Time addition logic
             if (!isCountUpMode && timeAdditionSecondsPerTurn > 0) {
                 if (isFullRotationIncrementEnabled && !incrementOnEveryTurnEnd) {
-                    if (logicalPlayerIndex === mainTurnHolderIndex && 
+                    if (logicalPlayerIndex === mainTurnHolderIndex &&
                         !isPlayerEffectivelyOutOfGame(logicalPlayerIndex)) {
                         
                         playerTimes[logicalPlayerIndex] += timeAdditionSecondsPerTurn;
-                        console.log(`Player ${logicalPlayerIndex} (main turn holder) time incremented to: ${playerTimes[logicalPlayerIndex]}`);
 
                         let nextMainTurnHolder = findNextValidPlayerInSequence(mainTurnHolderIndex);
                         if (nextMainTurnHolder !== -1) {
@@ -1059,79 +1272,107 @@
                         }
                     }
                 } else if (incrementOnEveryTurnEnd) {
-                    if (logicalPlayerIndex !== -1 && 
+                    if (logicalPlayerIndex !== -1 &&
                         !isPlayerEffectivelyOutOfGame(logicalPlayerIndex)) {
                         playerTimes[logicalPlayerIndex] += timeAdditionSecondsPerTurn;
-                        console.log(`Player ${logicalPlayerIndex} time incremented to: ${playerTimes[logicalPlayerIndex]}`);
                     }
                 }
             }
+            playerTimeSnapshots[logicalPlayerIndex] = playerTimes[logicalPlayerIndex];
         }
 
+        /**
+         * Handles the start of a long press on a quadrant.
+         * @param {Event} event - The mousedown or touchstart event.
+         * @param {number} logicalPlayerIndex - The index of the player being pressed.
+         */
         function handlePressStart(event, logicalPlayerIndex) {
             const quadrant = getQuadrantDOMByLogicalIndex(logicalPlayerIndex);
             if (!quadrant || isPlayerEffectivelyOutOfGame(logicalPlayerIndex)) return;
             if (event.type === 'mousedown') event.preventDefault();
             clearTimeout(longPressTimers[logicalPlayerIndex]);
-            longPressActionTakenFlags[logicalPlayerIndex] = false; 
+            longPressActionTakenFlags[logicalPlayerIndex] = false;
             quadrant.classList.add('long-pressing');
             longPressTimers[logicalPlayerIndex] = setTimeout(() => {
                 if (quadrant.classList.contains('long-pressing')) {
                     manuallyDisablePlayer(logicalPlayerIndex);
-                    longPressActionTakenFlags[logicalPlayerIndex] = true; 
-                    quadrant.classList.remove('long-pressing'); 
+                    longPressActionTakenFlags[logicalPlayerIndex] = true;
+                    quadrant.classList.remove('long-pressing');
                 }
-                longPressTimers[logicalPlayerIndex] = null; 
+                longPressTimers[logicalPlayerIndex] = null;
             }, LONG_PRESS_DURATION);
         }
 
+        /**
+         * Handles the end of a long press on a quadrant.
+         * @param {Event} event - The mouseup, mouseleave, touchend, or touchcancel event.
+         * @param {number} logicalPlayerIndex - The index of the player being pressed.
+         */
         function handlePressEnd(event, logicalPlayerIndex) {
-            const quadrant = getQuadrantDOMByLogicalIndex(logicalPlayerIndex); 
+            const quadrant = getQuadrantDOMByLogicalIndex(logicalPlayerIndex);
             if (longPressTimers[logicalPlayerIndex]) {
                 clearTimeout(longPressTimers[logicalPlayerIndex]);
-                longPressTimers[logicalPlayerIndex] = null; 
+                longPressTimers[logicalPlayerIndex] = null;
             }
             if (quadrant) quadrant.classList.remove('long-pressing');
         }
 
+        /**
+         * Handles a click on a player quadrant.
+         * This is the main interaction logic for starting the timer and passing priority.
+         * @param {Event} event - The click event.
+         */
         function handleQuadrantClick(event) {
             const clickedQuadrant = event.currentTarget;
             const clickedLogicalPlayerIndex = parseInt(clickedQuadrant.dataset.playerIndex);
 
             if (longPressActionTakenFlags[clickedLogicalPlayerIndex]) {
-                longPressActionTakenFlags[clickedLogicalPlayerIndex] = false; 
-                return; 
+                longPressActionTakenFlags[clickedLogicalPlayerIndex] = false;
+                return;
             }
 
             if (isPlayerEffectivelyOutOfGame(clickedLogicalPlayerIndex)) {
                 playBeep(150, 0.1, 'triangle', 0.2);
                 return;
             }
-            initAudioContext(); 
+            initAudioContext();
             attemptFullscreenOnMobileLandscape();
 
-            if (isPaused) { 
+            if (isPaused) {
                 startTimerForPlayer(clickedLogicalPlayerIndex);
-                return; 
+                return;
             }
 
             if (activePlayerIndex === clickedLogicalPlayerIndex) {
-                 passTurnFromActivePlayer(); 
-            } else { 
-                const playerEndingTurnLogical = activePlayerIndex; 
-                handleEndOfTurnForPlayer(playerEndingTurnLogical); // Call the centralized end-of-turn logic
-                stopAllTimers(); 
-                startTimerForPlayer(clickedLogicalPlayerIndex); 
+                 passTurnFromActivePlayer();
+            } else {
+                const playerEndingTurnLogical = activePlayerIndex;
+                handleEndOfTurnForPlayer(playerEndingTurnLogical);
+                stopAllTimers();
+                startTimerForPlayer(clickedLogicalPlayerIndex);
             }
         }
 
+        /**
+         * Toggles the pause state of the game.
+         */
         function togglePause() {
             initAudioContext();
             attemptFullscreenOnMobileLandscape();
-            if (isPaused) { 
+            isPaused = !isPaused;
+
+            if (isPaused) {
+                // Pausing
+                stopAllTimers();
+                accumulatedElapsed += performance.now() - timeAnchor;
+                playerTimeSnapshots[activePlayerIndex] = playerTimes[activePlayerIndex];
+                releaseWakeLock();
+                playBeep(300, 0.08, 'triangle', 0.2);
+            } else {
+                // Resuming
                 let playerToStartCandidate = -1;
                 if (activePlayerIndex !== -1 && !isPlayerEffectivelyOutOfGame(activePlayerIndex)) {
-                    playerToStartCandidate = activePlayerIndex; 
+                    playerToStartCandidate = activePlayerIndex;
                 } else {
                     let potentialStarters = [currentTurnPlayerIndex, mainTurnHolderIndex, 0];
                     for (let starter of potentialStarters) {
@@ -1141,7 +1382,7 @@
                         }
                     }
                     if (playerToStartCandidate === -1) {
-                         for (let i = 0; i < numPlayers; i++) { 
+                         for (let i = 0; i < numPlayers; i++) {
                             if (!isPlayerEffectivelyOutOfGame(i)) {
                                 playerToStartCandidate = i;
                                 break;
@@ -1151,24 +1392,21 @@
                 }
                 
                 if (playerToStartCandidate !== -1) {
-                    startTimerForPlayer(playerToStartCandidate); 
-                } else { 
-                    isPaused = true; 
+                    startTimerForPlayer(playerToStartCandidate);
+                } else {
+                    isPaused = true; // Failed to find a player, so remain paused
                     activePlayerIndex = -1;
-                    updateDisplay(); 
-                    playBeep(180, 0.15, 'sawtooth', 0.25); 
+                    playBeep(180, 0.15, 'sawtooth', 0.25);
                 }
-            } else { 
-                isPaused = true;
-                stopAllTimers(); 
-                releaseWakeLock();
-                updateDisplay(); 
-                playBeep(300, 0.08, 'triangle', 0.2);
             }
+            updateDisplay();
         }
         
         pauseButton.addEventListener('click', togglePause);
 
+        /**
+         * Handles keyboard input (specifically the spacebar for passing the turn).
+         */
         document.addEventListener('keydown', (event) => {
             const activeElement = document.activeElement;
             const isInputActive = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable);
@@ -1190,6 +1428,9 @@
             }
         });
 
+        /**
+         * Applies the settings from the modal and resets the game.
+         */
         function applyAndResetGame() {
             let parsedNumPlayers = parseInt(numPlayersInput.value);
             numPlayers = (parsedNumPlayers >= 1 && parsedNumPlayers <= MAX_SUPPORTED_PLAYERS) ? parsedNumPlayers : 4;
@@ -1279,6 +1520,10 @@
             resetGame(); 
         }
         
+        /**
+         * Sets up the player customization UI in the settings modal based on the number of players.
+         * @param {number} count - The number of players to create settings for.
+         */
         function setupPlayerSettingsUI(count) {
             playerCustomizationDynamicArea.innerHTML = ''; // Use new container ID
             dynPlayerNameInputs = [];
@@ -1368,6 +1613,9 @@
             setupPlayerSettingsUI(currentNum); 
         });
 
+        /**
+         * Creates the player quadrant DOM elements and attaches event listeners.
+         */
         function setupQuadrantsAndDOM() {
             clockContainer.innerHTML = ''; 
             playerElements = []; 
@@ -1389,17 +1637,33 @@
 
                 const delaySpan = document.createElement('span');
                 delaySpan.classList.add('delay-display');
+
+                const controlsDiv = document.createElement('div');
+                controlsDiv.classList.add('player-controls');
+
+                const f6Button = document.createElement('button');
+                f6Button.classList.add('control-button', 'f6-button');
+                f6Button.textContent = 'F6';
+
+                const killButton = document.createElement('button');
+                killButton.classList.add('control-button', 'kill-button');
+                killButton.textContent = 'Kill';
+
+                controlsDiv.appendChild(f6Button);
+                controlsDiv.appendChild(killButton);
                 
                 q.appendChild(nameSpan);
                 q.appendChild(timeSpan);
                 q.appendChild(byoYomiSpan);
                 q.appendChild(delaySpan);
+                q.appendChild(controlsDiv);
                 clockContainer.appendChild(q); 
 
                 playerElements.push(q); 
                 playerNameSpans.push(nameSpan);
                 timeDisplayElements.push(timeSpan);
 
+                // Attach all necessary event listeners for interaction
                 q.addEventListener('click', handleQuadrantClick);
                 q.addEventListener('mousedown', (e) => {
                     const logicalIdx = parseInt(e.currentTarget.dataset.playerIndex);
@@ -1426,10 +1690,44 @@
                     handlePressEnd(e, logicalIdx);
                 });
                 q.addEventListener('contextmenu', (e) => e.preventDefault());
+
+                f6Button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const logicalIdx = parseInt(q.dataset.playerIndex);
+                    playerConfigs[logicalIdx].f6 = !playerConfigs[logicalIdx].f6;
+                    f6Button.classList.toggle('toggled', playerConfigs[logicalIdx].f6);
+                });
+
+                killButton.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    const logicalIdx = parseInt(q.dataset.playerIndex);
+                    killButton.classList.add('long-pressing');
+                    longPressTimers[logicalIdx] = setTimeout(() => {
+                        manuallyDisablePlayer(logicalIdx);
+                        killButton.classList.remove('long-pressing');
+                    }, LONG_PRESS_DURATION);
+                });
+
+                killButton.addEventListener('mouseup', (e) => {
+                    e.stopPropagation();
+                    const logicalIdx = parseInt(q.dataset.playerIndex);
+                    killButton.classList.remove('long-pressing');
+                    clearTimeout(longPressTimers[logicalIdx]);
+                });
+
+                killButton.addEventListener('mouseleave', (e) => {
+                    e.stopPropagation();
+                    const logicalIdx = parseInt(q.dataset.playerIndex);
+                    killButton.classList.remove('long-pressing');
+                    clearTimeout(longPressTimers[logicalIdx]);
+                });
             }
             applyGridLayoutAndRotation(); 
         }
         
+        /**
+         * Applies the correct CSS grid layout and text rotation based on the number of players.
+         */
         function applyGridLayoutAndRotation() {
             let gridCols = "1fr", gridRows = "1fr";
             let currentRotations = Array(numPlayers).fill(false); 
@@ -1439,6 +1737,7 @@
                 if(el) el.style.gridArea = ''; 
             });
             
+            // Define grid layout and visual-to-logical mapping for different player counts
             switch (numPlayers) {
                 case 1: 
                     visualToLogicalMap = [0]; 
@@ -1491,6 +1790,7 @@
             clockContainer.style.gridTemplateColumns = gridCols;
             clockContainer.style.gridTemplateRows = gridRows;
 
+            // Determine which quadrants need their text rotated
             for (let visualSlotIndex = 0; visualSlotIndex < numPlayers; visualSlotIndex++) {
                 const logicalPlayerId = visualToLogicalMap[visualSlotIndex]; 
                 let shouldRotate = false;
@@ -1509,6 +1809,7 @@
                 currentRotations[visualSlotIndex] = shouldRotate;
             }
 
+            // Apply names, colors, and rotations to the quadrants
             for (let visualSlotIndex = 0; visualSlotIndex < numPlayers; visualSlotIndex++) {
                 const qElement = playerElements[visualSlotIndex];
                 if (!qElement) continue;
@@ -1533,7 +1834,9 @@
             }
         }
 
-
+        /**
+         * Resets the game to its initial state.
+         */
         function resetGame() {
             stopAllTimers();
             releaseWakeLock();
@@ -1552,11 +1855,13 @@
             playerConfigs = playerConfigs.slice(0, numPlayers); 
 
             playerTimes = Array(numPlayers).fill(isCountUpMode ? 0 : (initialBaseTimeMinutes * 60) + initialBaseTimeSeconds);
+            playerTimeSnapshots = [...playerTimes];
             longPressTimers = Array(numPlayers).fill(null);
             longPressActionTakenFlags = Array(numPlayers).fill(false);
             playerTurnStartTimestamps = Array(numPlayers).fill(null);
             playerByoYomiPeriodsUsed = Array(numPlayers).fill(0);
             playerInByoYomiPhase = Array(numPlayers).fill(false);
+            playerConfigs.forEach(p => p.f6 = false);
 
             activePlayerIndex = -1; 
             currentTurnPlayerIndex = 0; 
@@ -1574,6 +1879,9 @@
             updateDisplay();
         }
         
+        /**
+         * Loads settings from localStorage and initializes the application.
+         */
         function loadSettings() {
             const savedSettings = localStorage.getItem(LOCAL_STORAGE_SETTINGS_KEY);
 
@@ -1669,6 +1977,7 @@
                 }
 
             } else { 
+                // Default settings if none are saved
                 numPlayersInput.value = 4;
                 numPlayers = 4;
                 initialBaseTimeMinutesInput.value = DEFAULT_INITIAL_BASE_MINUTES;
@@ -1693,6 +2002,7 @@
             applyAndResetGame(); 
         }
 
+        // --- Event Listeners for Settings Modal ---
         settingsToggleButton.addEventListener('click', () => { 
             setupPlayerSettingsUI(parseInt(numPlayersInput.value)); 
 
@@ -1735,12 +2045,16 @@
             playBeep(600, 0.1, 'sine', 0.3); // Confirmation sound
         });
 
+        // Close the modal if the user clicks outside of it
         window.addEventListener('click', (event) => { 
             if (event.target == settingsModal) {
                 settingsModal.style.display = 'none'; 
             }
         });
 
+        /**
+         * Main entry point: This runs when the page is fully loaded.
+         */
         document.addEventListener('DOMContentLoaded', () => {
             wakeLockVideo = document.getElementById('wakeLockVideo');
             loadSettings(); 
@@ -1749,7 +2063,15 @@
                 lowTimeWarningLabel.textContent = `Enable Low Total Time Warning (< ${LOW_TIME_PERCENTAGE_THRESHOLD * 100}% of initial)`;
             }
         });
+
+        // Expose the loadSettings function to the window object for testing purposes
+        window.loadSettings = loadSettings;
     </script>
+    <!-- 
+     * This video is a hacky fallback for the Wake Lock API. 
+     * By playing a tiny, silent, invisible video on a loop, it can prevent 
+     * some mobile browsers from sleeping.
+     -->
     <video id="wakeLockVideo" loop muted playsinline style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;" aria-hidden="true">
         <source src="data:video/webm;base64,GkXfo0AgQoaBAUL3gQFC8oEEQvOBCEKCQAR3ZWJtQoeBAkKFgQIYU4BnQI0VSalmBwgAAAAImJMBAwAAAAAAIAA2AIAhAYoBAAIAQAgAAAAAAABZU4BuAQAAAAAAAKAAAhgxgwFC8oUIkAQEAEiRAQEADIgAIQkECgACAAABAAIAgAAAAAIAAwAIBAQGCAgIBgYICAoLAhAYGAQEDAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=" type="video/webm">
     </video>
